@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CORS Test for PixieSketch Edge Functions</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .test-section { margin: 20px 0; }
+        .log { margin: 10px 0; padding: 12px; border-radius: 4px; }
+        .info { background-color: #d1ecf1; border-left: 4px solid #bee5eb; }
+        .success { background-color: #d4edda; border-left: 4px solid #c3e6cb; }
+        .error { background-color: #f8d7da; border-left: 4px solid #f5c6cb; }
+        .warning { background-color: #fff3cd; border-left: 4px solid #ffeaa7; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0056b3; }
+        .test-results { margin-top: 20px; }
+        .function-test { border: 1px solid #ddd; margin: 10px 0; padding: 15px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>🔒 PixieSketch CORS Security Test</h1>
+    <p>This tool tests the updated CORS configuration for PixieSketch Edge Functions.</p>
+    
+    <div class="test-section">
+        <h2>Current Environment</h2>
+        <div id="environment-info"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>CORS Tests</h2>
+        <button onclick="runAllTests()">🧪 Run All CORS Tests</button>
+        <button onclick="testSpecificFunction()">🎯 Test Specific Function</button>
+        <button onclick="clearResults()">🗑️ Clear Results</button>
+    </div>
+    
+    <div id="results" class="test-results"></div>
+    
+    <script>
+        const results = document.getElementById('results');
+        const envInfo = document.getElementById('environment-info');
+        
+        // Display environment information
+        function showEnvironmentInfo() {
+            const origin = window.location.origin;
+            const userAgent = navigator.userAgent;
+            const isAllowedOrigin = [
+                'http://localhost:8080',
+                'https://pixie-sketch-ai.vercel.app', 
+                'https://pixiesketch.com'
+            ].includes(origin);
+            
+            envInfo.innerHTML = `
+                <div class="log info">
+                    <strong>Current Origin:</strong> ${origin}<br>
+                    <strong>Should be Allowed:</strong> ${isAllowedOrigin ? '✅ Yes' : '❌ No'}<br>
+                    <strong>User Agent:</strong> ${userAgent.substring(0, 100)}...
+                </div>
+                ${!isAllowedOrigin ? '<div class="log warning"><strong>⚠️ Warning:</strong> Your current origin is not in the allowed list. CORS tests may fail.</div>' : ''}
+            `;
+        }
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `log ${type}`;
+            div.innerHTML = message;
+            results.appendChild(div);
+            
+            // Auto-scroll to bottom
+            div.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        function clearResults() {
+            results.innerHTML = '';
+        }
+        
+        async function testEdgeFunction(functionName) {
+            const baseUrl = 'https://uihnpebacpcndtkdizxd.supabase.co/functions/v1';
+            const testResults = {
+                function: functionName,
+                optionsPassed: false,
+                corsOrigin: null,
+                corsCredentials: null,
+                error: null
+            };
+            
+            try {
+                log(`🔍 Testing ${functionName}...`, 'info');
+                
+                // Test OPTIONS request (CORS preflight)
+                const optionsResponse = await fetch(`${baseUrl}/${functionName}`, {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Origin': window.location.origin,
+                        'Access-Control-Request-Method': 'POST',
+                        'Access-Control-Request-Headers': 'authorization, content-type'
+                    }
+                });
+                
+                testResults.corsOrigin = optionsResponse.headers.get('Access-Control-Allow-Origin');
+                testResults.corsCredentials = optionsResponse.headers.get('Access-Control-Allow-Credentials');
+                testResults.optionsPassed = optionsResponse.ok;
+                
+                const statusColor = testResults.corsOrigin && testResults.corsOrigin !== 'null' ? 'success' : 'error';
+                
+                log(`
+                    <div class="function-test">
+                        <h3>📋 ${functionName} Results</h3>
+                        <strong>Status:</strong> ${optionsResponse.status} ${optionsResponse.statusText}<br>
+                        <strong>CORS Origin:</strong> ${testResults.corsOrigin || 'Not set'}<br>
+                        <strong>CORS Credentials:</strong> ${testResults.corsCredentials || 'Not set'}<br>
+                        <strong>Allow Methods:</strong> ${optionsResponse.headers.get('Access-Control-Allow-Methods') || 'Not set'}<br>
+                        <strong>Allow Headers:</strong> ${optionsResponse.headers.get('Access-Control-Allow-Headers') || 'Not set'}<br>
+                        <strong>Max Age:</strong> ${optionsResponse.headers.get('Access-Control-Max-Age') || 'Not set'}<br>
+                        <strong>Result:</strong> ${testResults.corsOrigin && testResults.corsOrigin !== 'null' ? '✅ CORS Enabled' : '❌ CORS Blocked'}
+                    </div>
+                `, statusColor);
+                
+            } catch (error) {
+                testResults.error = error.message;
+                log(`❌ ${functionName}: Network Error - ${error.message}`, 'error');
+            }
+            
+            return testResults;
+        }
+        
+        async function runAllTests() {
+            clearResults();
+            log('🚀 Starting comprehensive CORS tests...', 'info');
+            log(`📍 Testing from origin: <strong>${window.location.origin}</strong>`, 'info');
+            
+            const functions = ['analyze-drawing', 'process-sketch', 'create-payment', 'admin-operations'];
+            const testResults = [];
+            
+            for (const functionName of functions) {
+                const result = await testEdgeFunction(functionName);
+                testResults.push(result);
+                
+                // Small delay between tests
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            
+            // Summary
+            const successCount = testResults.filter(r => r.corsOrigin && r.corsOrigin !== 'null').length;
+            const totalCount = testResults.length;
+            
+            log(`
+                <div style="margin-top: 20px; padding: 15px; border: 2px solid ${successCount === totalCount ? '#28a745' : '#dc3545'}; border-radius: 8px;">
+                    <h3>📊 Test Summary</h3>
+                    <strong>Passed:</strong> ${successCount}/${totalCount}<br>
+                    <strong>Status:</strong> ${successCount === totalCount ? '✅ All functions have proper CORS' : '❌ Some functions have CORS issues'}<br>
+                    <strong>Next Steps:</strong> ${successCount === totalCount ? 'CORS configuration is working correctly!' : 'Check function deployment and CORS settings'}
+                </div>
+            `, successCount === totalCount ? 'success' : 'error');
+        }
+        
+        async function testSpecificFunction() {
+            const functionName = prompt('Enter function name (analyze-drawing, process-sketch, create-payment, admin-operations):');
+            if (functionName) {
+                clearResults();
+                await testEdgeFunction(functionName.trim());
+            }
+        }
+        
+        // Initialize on load
+        window.onload = function() {
+            showEnvironmentInfo();
+            log('🔒 CORS Test Tool Loaded. Click "Run All CORS Tests" to start testing.', 'info');
+        };
+    </script>
+</body>
+</html>
