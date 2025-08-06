@@ -7,13 +7,23 @@ const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-const allowedOrigins = ['http://localhost:8080', 'https://pixiesketch.com'];
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*', // Will be set dynamically based on request origin
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Max-Age': '86400',
-};
+const allowedOrigins = [
+  'http://localhost:8080',
+  'https://pixie-sketch-ai.vercel.app',
+  'https://pixiesketch.com'
+];
+
+function getCorsHeaders(origin: string | null) {
+  const allowedOrigin = origin && allowedOrigins.includes(origin) ? origin : null;
+  
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin || 'null',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Max-Age': '86400',
+    'Access-Control-Allow-Credentials': 'true'
+  };
+}
 
 interface AnalyzeRequest {
   prompt: string;
@@ -30,6 +40,9 @@ const RATE_LIMIT = 10; // 10 requests per minute
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
 
 serve(async (req) => {
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });

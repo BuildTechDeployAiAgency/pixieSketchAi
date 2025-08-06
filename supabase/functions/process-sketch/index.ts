@@ -3,12 +3,22 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import "https://deno.land/x/xhr@0.1.0/mod.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
 
-const allowedOrigins = ['http://localhost:8080', 'https://pixiesketch.com'];
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*', // Will be set dynamically based on request origin
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Max-Age': '86400',
+const allowedOrigins = [
+  'http://localhost:8080',
+  'https://pixie-sketch-ai.vercel.app',
+  'https://pixiesketch.com'
+];
+
+function getCorsHeaders(origin: string | null) {
+  const allowedOrigin = origin && allowedOrigins.includes(origin) ? origin : null;
+  
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin || 'null',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Max-Age': '86400',
+    'Access-Control-Allow-Credentials': 'true'
+  };
 }
 
 // Rate limiting
@@ -87,6 +97,9 @@ async function handleProcessingError(supabase: any, sketchId: string, error: any
 }
 
 serve(async (req) => {
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+  
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -608,7 +621,7 @@ async function fallbackImageGeneration(openAIApiKey: string, prompt: string, ske
           details: errorText,
           success: false 
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: response.status }
+        { headers: { ...getCorsHeaders(null), 'Content-Type': 'application/json' }, status: response.status }
       )
     }
 

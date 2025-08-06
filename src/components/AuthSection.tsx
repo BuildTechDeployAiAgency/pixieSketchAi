@@ -285,7 +285,7 @@ export const AuthSection = ({
             </div>
             
             <p className="text-xs text-center text-gray-500">
-              COPPA-compliant authentication for parents and guardians
+              Secure authentication for family use
             </p>
           </CardContent>
         </Card>
