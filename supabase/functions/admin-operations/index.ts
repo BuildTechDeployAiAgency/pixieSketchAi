@@ -1,5 +1,5 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
 const allowedOrigins = [
   'http://localhost:8080',
@@ -59,18 +59,35 @@ async function logAdminAction(
 }
 
 serve(async (req) => {
+  console.log('Admin operations function invoked:', req.method, req.url);
+  
+  const corsHeaders = getCorsHeaders(req.headers.get('Origin'));
+  
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    // Check for required environment variables
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')
+    
+    if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
+      console.error('Missing required environment variables');
+      return new Response(
+        JSON.stringify({ 
+          error: 'Server configuration error', 
+          details: 'Missing required environment variables'
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+    
     const authHeader = req.headers.get('Authorization')
 
     // Create client with user's auth for admin check
-    const supabaseAuth = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader || '' } }
     })
 
@@ -85,11 +102,36 @@ serve(async (req) => {
       )
     }
 
-    const { operation, ...params } = await req.json()
+    let operation, params;
+    try {
+      const body = await req.json();
+      operation = body.operation;
+      params = { ...body };
+      delete params.operation;
+    } catch (jsonError) {
+      console.error('JSON parsing error:', jsonError);
+      return new Response(
+        JSON.stringify({ error: 'Invalid request body', details: 'Request must be valid JSON' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     console.log('Admin operation requested:', operation, params)
 
     switch (operation) {
+      // Health check endpoint for testing
+      case 'health': {
+        console.log('Health check requested');
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: 'Admin operations function is healthy',
+            timestamp: new Date().toISOString()
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      
       case 'reset_password': {
         const { email } = params
         
@@ -389,8 +431,13 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Admin operation error:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ 
+        error: 'Internal server error',
+        message: errorMessage,
+        details: error instanceof Error ? error.stack : String(error)
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }

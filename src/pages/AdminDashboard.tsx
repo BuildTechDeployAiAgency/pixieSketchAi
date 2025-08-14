@@ -178,6 +178,40 @@ const AdminDashboard = () => {
     }
   };
 
+  // Health check for admin operations
+  const checkAdminHealth = async () => {
+    console.log('🏥 Admin: Checking Edge Function health...');
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-operations', {
+        body: {
+          operation: 'health'
+        }
+      });
+
+      if (error) {
+        console.error('❌ Admin: Health check error:', error);
+        toast({
+          title: "Edge Function Error",
+          description: "Admin operations Edge Function is not responding. Please check deployment.",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      console.log('✅ Admin: Health check passed:', data);
+      return true;
+    } catch (error) {
+      console.error('❌ Admin: Health check exception:', error);
+      toast({
+        title: "Connection Error",
+        description: "Cannot connect to admin operations. Please check your connection.",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
   // Fetch budget statistics
   const fetchBudgetStats = async () => {
     console.log('🔍 Admin: Fetching budget stats...');
@@ -193,24 +227,22 @@ const AdminDashboard = () => {
 
       if (error) {
         console.error('❌ Admin: Budget stats error:', error);
-        throw error;
+        // Don't throw, just log and continue
+        return;
       }
       
       if (!data || !data.success) {
         const errorMsg = data?.error || 'Unknown error fetching budget stats';
         console.error('❌ Admin: Budget stats failed:', errorMsg);
-        throw new Error(errorMsg);
+        // Don't throw, just log and continue
+        return;
       }
 
       console.log('✅ Admin: Budget stats fetched successfully');
       setBudgetStats(data.budget_stats);
     } catch (error: any) {
       console.error('❌ Admin: Budget stats exception:', error);
-      toast({
-        title: "Budget Stats Failed",
-        description: error.message || "Failed to fetch budget statistics",
-        variant: "destructive",
-      });
+      // Don't show error toast here, it's not critical
     }
   };
 
@@ -361,8 +393,20 @@ const AdminDashboard = () => {
   };
 
   useEffect(() => {
-    fetchData();
-    fetchBudgetStats();
+    const initializeAdmin = async () => {
+      // First check if Edge Function is healthy
+      const isHealthy = await checkAdminHealth();
+      
+      // Always fetch basic data (users, payments)
+      await fetchData();
+      
+      // Only fetch budget stats if Edge Function is healthy
+      if (isHealthy) {
+        fetchBudgetStats();
+      }
+    };
+    
+    initializeAdmin();
   }, []);
 
   // Filter users based on search
@@ -829,7 +873,11 @@ const AdminDashboard = () => {
                   ) : (
                     <div className="text-center py-8">
                       <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-600">Loading budget statistics...</p>
+                      <p className="text-gray-600 mb-2">Budget statistics unavailable</p>
+                      <p className="text-sm text-gray-500 mb-4">
+                        This feature requires the budget system database schema. 
+                        Please apply the SQL schema from supabase/credit-budget-system.sql
+                      </p>
                       <Button
                         variant="outline"
                         onClick={fetchBudgetStats}

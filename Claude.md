@@ -178,7 +178,8 @@ Required environment variables:
 
 ## Deployment
 
-The project is set up for deployment via Lovable platform:
-- Production builds via `npm run build`
-- Automatic deployment through Lovable interface
-- Custom domain support available in project settings
+The project is designed for flexible deployment on multiple platforms:
+- **Vercel**: Automatic deployment from GitHub repository with `npm run build`
+- **Netlify**: Static site hosting with build command `npm run build` and publish directory `dist`
+- **Manual**: Production builds via `npm run build`, serve `dist` folder
+- Custom domain support available on most hosting platforms
