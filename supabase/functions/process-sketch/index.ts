@@ -18,7 +18,8 @@ function getCorsHeaders(origin: string | null) {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Max-Age': '86400',
-    'Access-Control-Allow-Credentials': 'true'
+    'Access-Control-Allow-Credentials': 'true',
+    'Cross-Origin-Resource-Policy': 'cross-origin'
   };
 }
 
