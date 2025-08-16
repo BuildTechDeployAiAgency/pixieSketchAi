@@ -6,7 +6,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
 const allowedOrigins = [
   'http://localhost:8080',
   'https://pixie-sketch-ai.vercel.app',
-  'https://pixiesketch.com'
+  'https://pixiesketch.com',
+  'https://www.pixiesketch.com'
 ];
 
 function getCorsHeaders(origin: string | null) {

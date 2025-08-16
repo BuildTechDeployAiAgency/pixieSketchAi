@@ -3,7 +3,8 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 const allowedOrigins = [
   'http://localhost:8080',
   'https://pixie-sketch-ai.vercel.app',
-  'https://pixiesketch.com'
+  'https://pixiesketch.com',
+  'https://www.pixiesketch.com'
 ];
 
 function getCorsHeaders(origin: string | null) {

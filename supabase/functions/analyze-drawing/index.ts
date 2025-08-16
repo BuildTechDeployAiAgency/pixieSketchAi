@@ -10,7 +10,8 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const allowedOrigins = [
   'http://localhost:8080',
   'https://pixie-sketch-ai.vercel.app',
-  'https://pixiesketch.com'
+  'https://pixiesketch.com',
+  'https://www.pixiesketch.com'
 ];
 
 function getCorsHeaders(origin: string | null) {
