@@ -2,8 +2,21 @@ import { useState } from "react";
 import { LogIn, LogOut, User, Mail, Lock, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 interface AuthSectionProps {
@@ -12,39 +25,34 @@ interface AuthSectionProps {
 }
 export const AuthSection = ({
   isAuthenticated,
-  setIsAuthenticated
+  setIsAuthenticated,
 }: AuthSectionProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
-  const {
-    toast
-  } = useToast();
+  const { toast } = useToast();
   const handleLogin = async () => {
     if (!email || !password) {
       toast({
         title: "Missing Information",
         description: "Please enter both email and password",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
     setIsLoading(true);
     try {
-      const {
-        data,
-        error
-      } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        password
+        password,
       });
       if (error) {
         toast({
           title: "Login Failed",
           description: error.message,
-          variant: "destructive"
+          variant: "destructive",
         });
         return;
       }
@@ -55,14 +63,14 @@ export const AuthSection = ({
         setPassword("");
         toast({
           title: "Welcome back!",
-          description: "You're now logged in and ready to create magic"
+          description: "You're now logged in and ready to create magic",
         });
       }
     } catch (error) {
       toast({
         title: "Error",
         description: "An unexpected error occurred. Please try again.",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -73,7 +81,7 @@ export const AuthSection = ({
       toast({
         title: "Missing Information",
         description: "Please enter both email and password",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -81,24 +89,21 @@ export const AuthSection = ({
       toast({
         title: "Password Too Short",
         description: "Password must be at least 6 characters long",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
     setIsLoading(true);
     try {
-      const {
-        data,
-        error
-      } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
-        password
+        password,
       });
       if (error) {
         toast({
           title: "Sign Up Failed",
           description: error.message,
-          variant: "destructive"
+          variant: "destructive",
         });
         return;
       }
@@ -109,14 +114,14 @@ export const AuthSection = ({
         setPassword("");
         toast({
           title: "Welcome to MagicSketch AI!",
-          description: "Your account has been created successfully!"
+          description: "Your account has been created successfully!",
         });
       }
     } catch (error) {
       toast({
         title: "Error",
         description: "An unexpected error occurred. Please try again.",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -126,17 +131,17 @@ export const AuthSection = ({
     setIsLoading(true);
     try {
       const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
+        provider: "google",
         options: {
           redirectTo: `${window.location.origin}`,
-        }
+        },
       });
 
       if (error) {
         toast({
           title: "Google Login Failed",
           description: error.message,
-          variant: "destructive"
+          variant: "destructive",
         });
       }
       // Note: The actual authentication will happen after redirect
@@ -144,7 +149,7 @@ export const AuthSection = ({
       toast({
         title: "Error",
         description: "An unexpected error occurred. Please try again.",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -157,29 +162,31 @@ export const AuthSection = ({
       setIsAuthenticated(false);
       toast({
         title: "Logged Out",
-        description: "Come back soon to create more magic!"
+        description: "Come back soon to create more magic!",
       });
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to log out. Please try again.",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
   if (isAuthenticated) {
-    return <div className="flex items-center gap-3">
+    return (
+      <div className="flex items-center gap-3">
         <div className="flex items-center gap-2 text-sm text-gray-600">
           <User className="h-4 w-4" />
-          
         </div>
         <Button variant="outline" size="sm" onClick={handleLogout}>
           <LogOut className="h-4 w-4 mr-1" />
           Logout
         </Button>
-      </div>;
+      </div>
+    );
   }
-  return <Dialog open={isOpen} onOpenChange={setIsOpen}>
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button variant="outline">
           <LogIn className="h-4 w-4 mr-2" />
@@ -192,7 +199,9 @@ export const AuthSection = ({
             {isSignUp ? "Create Account" : "Welcome Back!"}
           </DialogTitle>
           <DialogDescription className="text-center text-lg">
-            {isSignUp ? "Create your account to start creating magic" : "Sign in to your account"}
+            {isSignUp
+              ? "Create your account to start creating magic"
+              : "Sign in to your account"}
           </DialogDescription>
         </DialogHeader>
         <Card className="border-0 shadow-none">
@@ -203,7 +212,14 @@ export const AuthSection = ({
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input id="email" type="email" placeholder="parent@example.com" value={email} onChange={e => setEmail(e.target.value)} className="pl-10" />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="parent@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="pl-10"
+                />
               </div>
             </div>
 
@@ -213,23 +229,50 @@ export const AuthSection = ({
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input id="password" type="password" placeholder={isSignUp ? "Create a password (min 6 characters)" : "Enter your password"} value={password} onChange={e => setPassword(e.target.value)} className="pl-10" onKeyPress={e => e.key === 'Enter' && (isSignUp ? handleSignUp() : handleLogin())} />
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder={
+                    isSignUp
+                      ? "Create a password (min 6 characters)"
+                      : "Enter your password"
+                  }
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-10"
+                  onKeyPress={(e) =>
+                    e.key === "Enter" &&
+                    (isSignUp ? handleSignUp() : handleLogin())
+                  }
+                />
               </div>
             </div>
-            
-            <Button onClick={isSignUp ? handleSignUp : handleLogin} disabled={isLoading} className="w-full bg-purple-600 hover:bg-purple-700">
-              {isLoading ? <>
+
+            <Button
+              onClick={isSignUp ? handleSignUp : handleLogin}
+              disabled={isLoading}
+              className="w-full bg-purple-600 hover:bg-purple-700"
+            >
+              {isLoading ? (
+                <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                   {isSignUp ? "Creating Account..." : "Signing In..."}
-                </> : <>
-                  {isSignUp ? <>
+                </>
+              ) : (
+                <>
+                  {isSignUp ? (
+                    <>
                       <UserPlus className="h-4 w-4 mr-2" />
                       Create Account
-                    </> : <>
+                    </>
+                  ) : (
+                    <>
                       <LogIn className="h-4 w-4 mr-2" />
                       Sign In
-                    </>}
-                </>}
+                    </>
+                  )}
+                </>
+              )}
             </Button>
 
             <div className="relative">
@@ -243,10 +286,10 @@ export const AuthSection = ({
               </div>
             </div>
 
-            <Button 
-              onClick={handleGoogleLogin} 
-              disabled={isLoading} 
-              variant="outline" 
+            <Button
+              onClick={handleGoogleLogin}
+              disabled={isLoading}
+              variant="outline"
               className="w-full"
             >
               {isLoading ? (
@@ -275,20 +318,27 @@ export const AuthSection = ({
             </Button>
 
             <div className="text-center">
-              <button type="button" onClick={() => {
-              setIsSignUp(!isSignUp);
-              setEmail("");
-              setPassword("");
-            }} className="text-sm text-purple-600 hover:text-purple-700 underline">
-                {isSignUp ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSignUp(!isSignUp);
+                  setEmail("");
+                  setPassword("");
+                }}
+                className="text-sm text-purple-600 hover:text-purple-700 underline"
+              >
+                {isSignUp
+                  ? "Already have an account? Sign in"
+                  : "Don't have an account? Sign up"}
               </button>
             </div>
-            
+
             <p className="text-xs text-center text-gray-500">
               Secure authentication for family use
             </p>
           </CardContent>
         </Card>
       </DialogContent>
-    </Dialog>;
+    </Dialog>
+  );
 };

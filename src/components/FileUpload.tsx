@@ -1,8 +1,19 @@
-
 import { useState, useEffect } from "react";
-import { Upload, Sparkles, AlertCircle, CheckCircle, Clock } from "lucide-react";
+import {
+  Upload,
+  Sparkles,
+  AlertCircle,
+  CheckCircle,
+  Clock,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { PresetButtonGroup } from "./PresetButtonGroup";
@@ -16,11 +27,18 @@ interface FileUploadProps {
   onCreditUpdate?: () => void;
 }
 
-export const FileUpload = ({ credits, setCredits, isAuthenticated, onCreditUpdate }: FileUploadProps) => {
+export const FileUpload = ({
+  credits,
+  setCredits,
+  isAuthenticated,
+  onCreditUpdate,
+}: FileUploadProps) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [processingPreset, setProcessingPreset] = useState<PresetOption | null>(null);
+  const [processingPreset, setProcessingPreset] = useState<PresetOption | null>(
+    null,
+  );
   const { toast } = useToast();
   const { createSketch, updateSketchStatus } = useSketches();
 
@@ -35,7 +53,7 @@ export const FileUpload = ({ credits, setCredits, isAuthenticated, onCreditUpdat
     }
 
     // Validate file type
-    if (!file.type.startsWith('image/')) {
+    if (!file.type.startsWith("image/")) {
       toast({
         title: "Invalid File Type",
         description: "Please upload an image file (JPG, PNG, etc.)",
@@ -68,7 +86,8 @@ export const FileUpload = ({ credits, setCredits, isAuthenticated, onCreditUpdat
     if (!selectedFile || !isAuthenticated) {
       toast({
         title: "Upload Required",
-        description: "Please upload a drawing and ensure you're logged in first",
+        description:
+          "Please upload a drawing and ensure you're logged in first",
         variant: "destructive",
       });
       return;
@@ -77,7 +96,8 @@ export const FileUpload = ({ credits, setCredits, isAuthenticated, onCreditUpdat
     if (credits <= 0) {
       toast({
         title: "No Credits",
-        description: "You need credits to transform drawings. Please purchase credits first.",
+        description:
+          "You need credits to transform drawings. Please purchase credits first.",
         variant: "destructive",
       });
       return;
@@ -86,109 +106,130 @@ export const FileUpload = ({ credits, setCredits, isAuthenticated, onCreditUpdat
     try {
       setIsProcessing(true);
       setProcessingPreset(preset);
-      
-      console.log(`🎨 Starting ${preset} transformation for file:`, selectedFile.name);
+
+      console.log(
+        `🎨 Starting ${preset} transformation for file:`,
+        selectedFile.name,
+      );
 
       // Upload original image to storage
-      const fileExt = selectedFile.name.split('.').pop();
+      const fileExt = selectedFile.name.split(".").pop();
       const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
-      
-      console.log('📤 Uploading original image to storage:', fileName);
-      
+
+      console.log("📤 Uploading original image to storage:", fileName);
+
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('sketches')
+        .from("sketches")
         .upload(fileName, selectedFile);
 
       if (uploadError) {
-        console.error('❌ Storage upload error:', uploadError);
-        
+        console.error("❌ Storage upload error:", uploadError);
+
         // Provide more helpful error messages
-        if (uploadError.message?.includes('not found')) {
-          throw new Error('Storage bucket "sketches" not found. Please contact support.');
-        } else if (uploadError.message?.includes('policy')) {
-          throw new Error('Upload permission denied. Please ensure you are logged in.');
-        } else if (uploadError.message?.includes('size')) {
-          throw new Error('File too large. Please upload an image smaller than 50MB.');
+        if (uploadError.message?.includes("not found")) {
+          throw new Error(
+            'Storage bucket "sketches" not found. Please contact support.',
+          );
+        } else if (uploadError.message?.includes("policy")) {
+          throw new Error(
+            "Upload permission denied. Please ensure you are logged in.",
+          );
+        } else if (uploadError.message?.includes("size")) {
+          throw new Error(
+            "File too large. Please upload an image smaller than 50MB.",
+          );
         } else {
           throw new Error(`Failed to upload image: ${uploadError.message}`);
         }
       }
 
-      console.log('✅ Image uploaded successfully:', uploadData);
+      console.log("✅ Image uploaded successfully:", uploadData);
 
       // Get public URL for the uploaded image
-      const { data: { publicUrl } } = supabase.storage
-        .from('sketches')
-        .getPublicUrl(fileName);
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("sketches").getPublicUrl(fileName);
 
-      console.log('🔗 Public URL generated:', publicUrl);
+      console.log("🔗 Public URL generated:", publicUrl);
 
       // Create sketch record in database
       const sketchName = `Drawing ${new Date().toLocaleDateString()}, ${new Date().toLocaleTimeString()}`;
-      console.log('💾 Creating sketch record:', sketchName);
-      
+      console.log("💾 Creating sketch record:", sketchName);
+
       const sketch = await createSketch(sketchName, publicUrl);
-      
+
       if (!sketch) {
-        throw new Error('Failed to create sketch record');
+        throw new Error("Failed to create sketch record");
       }
 
-      console.log('✅ Sketch record created:', sketch.id);
+      console.log("✅ Sketch record created:", sketch.id);
 
       // Convert file to base64 for API
       const base64Data = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => {
           const result = reader.result as string;
-          const base64 = result.split(',')[1];
+          const base64 = result.split(",")[1];
           resolve(base64);
         };
         reader.onerror = reject;
         reader.readAsDataURL(selectedFile);
       });
 
-      console.log('🔄 Converted to base64, length:', base64Data.length);
+      console.log("🔄 Converted to base64, length:", base64Data.length);
 
       // Call the process-sketch function
-      console.log('🚀 Calling process-sketch function...');
-      
-      const { data: processData, error: processError } = await supabase.functions.invoke('process-sketch', {
-        body: {
-          imageData: base64Data,
-          preset: preset,
-          sketchId: sketch.id
-        }
+      console.log("🚀 Calling process-sketch function...");
+
+      const { data: processData, error: processError } =
+        await supabase.functions.invoke("process-sketch", {
+          body: {
+            imageData: base64Data,
+            preset: preset,
+            sketchId: sketch.id,
+          },
+        });
+
+      console.log("📡 Process function response:", {
+        processData,
+        processError,
       });
 
-      console.log('📡 Process function response:', { processData, processError });
-
       if (processError) {
-        console.error('❌ Process function error:', processError);
-        await updateSketchStatus(sketch.id, 'failed');
-        throw new Error(`Processing failed: ${processError.message || 'Unknown error'}`);
+        console.error("❌ Process function error:", processError);
+        await updateSketchStatus(sketch.id, "failed");
+        throw new Error(
+          `Processing failed: ${processError.message || "Unknown error"}`,
+        );
       }
 
       if (!processData || !processData.success) {
-        console.error('❌ Process function returned failure:', processData);
-        await updateSketchStatus(sketch.id, 'failed');
-        throw new Error(`Processing failed: ${processData?.error || 'Unknown error'}`);
+        console.error("❌ Process function returned failure:", processData);
+        await updateSketchStatus(sketch.id, "failed");
+        throw new Error(
+          `Processing failed: ${processData?.error || "Unknown error"}`,
+        );
       }
 
-      console.log('✅ Processing successful, updating database...');
+      console.log("✅ Processing successful, updating database...");
 
       // Update sketch with animated result
-      await updateSketchStatus(sketch.id, 'completed', processData.animatedImageUrl);
-      
-      console.log('🎉 Transformation completed successfully!');
+      await updateSketchStatus(
+        sketch.id,
+        "completed",
+        processData.animatedImageUrl,
+      );
+
+      console.log("🎉 Transformation completed successfully!");
 
       // Credits are now deducted server-side, trigger credit balance refresh
       if (onCreditUpdate) {
         onCreditUpdate();
       }
-      
+
       // Also update local state for immediate feedback
       setCredits(Math.max(0, credits - 1));
-      
+
       toast({
         title: "🎉 Transformation Complete!",
         description: `Your drawing has been transformed using ${preset} style!`,
@@ -197,13 +238,15 @@ export const FileUpload = ({ credits, setCredits, isAuthenticated, onCreditUpdat
       // Reset form
       setSelectedFile(null);
       setPreviewUrl(null);
-
     } catch (error) {
-      console.error('💥 Transformation error:', error);
-      
+      console.error("💥 Transformation error:", error);
+
       toast({
         title: "Transformation Failed",
-        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        description:
+          error instanceof Error
+            ? error.message
+            : "An unexpected error occurred",
         variant: "destructive",
       });
     } finally {
@@ -228,7 +271,7 @@ export const FileUpload = ({ credits, setCredits, isAuthenticated, onCreditUpdat
           className="hidden"
           id="upload-file"
         />
-        
+
         <label htmlFor="upload-file" className="cursor-pointer">
           {previewUrl ? (
             <div className="relative">
@@ -265,7 +308,10 @@ export const FileUpload = ({ credits, setCredits, isAuthenticated, onCreditUpdat
           <div className="rounded-md bg-yellow-50 p-4">
             <div className="flex">
               <div className="flex-shrink-0">
-                <AlertCircle className="h-5 w-5 text-yellow-400" aria-hidden="true" />
+                <AlertCircle
+                  className="h-5 w-5 text-yellow-400"
+                  aria-hidden="true"
+                />
               </div>
               <div className="ml-3">
                 <h3 className="text-sm font-medium text-yellow-800">
@@ -283,14 +329,20 @@ export const FileUpload = ({ credits, setCredits, isAuthenticated, onCreditUpdat
           <div className="rounded-md bg-red-50 p-4">
             <div className="flex">
               <div className="flex-shrink-0">
-                <AlertCircle className="h-5 w-5 text-red-400" aria-hidden="true" />
+                <AlertCircle
+                  className="h-5 w-5 text-red-400"
+                  aria-hidden="true"
+                />
               </div>
               <div className="ml-3">
                 <h3 className="text-sm font-medium text-red-800">
                   No Credits Available
                 </h3>
                 <div className="mt-2 text-sm text-red-700">
-                  <p>You need credits to transform drawings. Please purchase credits first.</p>
+                  <p>
+                    You need credits to transform drawings. Please purchase
+                    credits first.
+                  </p>
                 </div>
               </div>
             </div>

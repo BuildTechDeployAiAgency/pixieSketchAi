@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { CheckCircle, ArrowLeft, Sparkles } from "lucide-react";
@@ -18,8 +17,8 @@ const PaymentSuccess = () => {
   const [verificationResult, setVerificationResult] = useState<any>(null);
   const [purchaseDetails, setPurchaseDetails] = useState<any>(null);
 
-  const sessionId = searchParams.get('session_id');
-  const credits = searchParams.get('credits');
+  const sessionId = searchParams.get("session_id");
+  const credits = searchParams.get("credits");
 
   useEffect(() => {
     const verifyPayment = async () => {
@@ -29,14 +28,17 @@ const PaymentSuccess = () => {
           description: "Invalid payment session",
           variant: "destructive",
         });
-        navigate('/');
+        navigate("/");
         return;
       }
 
       try {
-        const { data, error } = await supabase.functions.invoke('verify-payment', {
-          body: { sessionId }
-        });
+        const { data, error } = await supabase.functions.invoke(
+          "verify-payment",
+          {
+            body: { sessionId },
+          },
+        );
 
         if (error) {
           throw error;
@@ -44,18 +46,18 @@ const PaymentSuccess = () => {
 
         setVerificationResult(data);
         setPurchaseDetails(data.purchaseDetails);
-        
+
         if (data.success) {
           // Refresh user profile to get updated credits
           await refreshProfile();
-          
+
           toast({
             title: "Payment Successful!",
             description: `Your account has been credited with ${data.addedCredits || credits} credits.`,
           });
         }
       } catch (error) {
-        console.error('Payment verification failed:', error);
+        console.error("Payment verification failed:", error);
         toast({
           title: "Verification Failed",
           description: "Unable to verify payment. Please contact support.",
@@ -93,9 +95,7 @@ const PaymentSuccess = () => {
               <CardTitle className="text-2xl text-green-800">
                 Payment Successful!
               </CardTitle>
-              <p className="text-gray-600">
-                Thank you for your purchase
-              </p>
+              <p className="text-gray-600">Thank you for your purchase</p>
             </>
           )}
         </CardHeader>
@@ -104,12 +104,15 @@ const PaymentSuccess = () => {
           <CardContent className="space-y-6">
             {/* Purchase Summary */}
             <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-              <h3 className="font-semibold text-blue-800 mb-3 text-center">Purchase Summary</h3>
+              <h3 className="font-semibold text-blue-800 mb-3 text-center">
+                Purchase Summary
+              </h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Package:</span>
                   <span className="font-medium">
-                    {purchaseDetails?.packageName || `${verificationResult.addedCredits || credits} Credits`}
+                    {purchaseDetails?.packageName ||
+                      `${verificationResult.addedCredits || credits} Credits`}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -121,13 +124,13 @@ const PaymentSuccess = () => {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Payment Method:</span>
                   <span className="font-medium">
-                    {purchaseDetails?.paymentMethod || 'Card'}
+                    {purchaseDetails?.paymentMethod || "Card"}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Transaction ID:</span>
                   <span className="font-mono text-xs">
-                    {sessionId?.slice(-8) || 'N/A'}
+                    {sessionId?.slice(-8) || "N/A"}
                   </span>
                 </div>
               </div>
@@ -137,40 +140,46 @@ const PaymentSuccess = () => {
             <div className="bg-green-50 rounded-lg p-4 border border-green-200">
               <div className="flex items-center justify-center space-x-2 mb-2">
                 <Sparkles className="h-5 w-5 text-green-600" />
-                <span className="font-semibold text-green-800">Credits Added to Your Account</span>
+                <span className="font-semibold text-green-800">
+                  Credits Added to Your Account
+                </span>
               </div>
               <div className="text-center">
                 <Badge className="bg-green-100 text-green-700 text-xl py-3 px-6">
                   +{verificationResult.addedCredits || credits} Credits
                 </Badge>
                 <p className="text-sm text-gray-600 mt-2">
-                  Total Credits: {verificationResult.credits || 'Loading...'}
+                  Total Credits: {verificationResult.credits || "Loading..."}
                 </p>
               </div>
             </div>
 
             {/* What's Next */}
             <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-              <h3 className="font-semibold text-purple-800 mb-2 text-center">What's Next?</h3>
+              <h3 className="font-semibold text-purple-800 mb-2 text-center">
+                What's Next?
+              </h3>
               <ul className="text-sm text-purple-700 space-y-1">
                 <li>• Upload your drawings to transform them</li>
-                <li>• Choose from 3 magical styles: Cartoon, Pixar, or Realistic</li>
+                <li>
+                  • Choose from 3 magical styles: Cartoon, Pixar, or Realistic
+                </li>
                 <li>• Each transformation uses 1 credit</li>
                 <li>• Download and share your magical creations!</li>
               </ul>
             </div>
 
             <div className="space-y-3">
-              <Button 
-                onClick={() => navigate('/')} 
+              <Button
+                onClick={() => navigate("/")}
                 className="w-full bg-purple-600 hover:bg-purple-700 text-lg py-3"
               >
                 <Sparkles className="h-5 w-5 mr-2" />
                 Start Creating Magic
               </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => navigate('/')}
+              <Button
+                variant="outline"
+                onClick={() => navigate("/")}
                 className="w-full"
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />

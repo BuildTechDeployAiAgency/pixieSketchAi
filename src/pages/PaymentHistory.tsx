@@ -1,10 +1,25 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Download, CreditCard, Calendar, DollarSign, Package, RefreshCw } from "lucide-react";
+import {
+  ArrowLeft,
+  Download,
+  CreditCard,
+  Calendar,
+  DollarSign,
+  Package,
+  RefreshCw,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useUserProfile } from "@/hooks/useUserProfile";
@@ -33,28 +48,34 @@ const PaymentHistory = () => {
   const fetchPaymentHistory = async () => {
     try {
       setIsLoading(true);
-      
+
       const { data, error } = await supabase
-        .from('user_payment_history')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .from("user_payment_history")
+        .select("*")
+        .order("created_at", { ascending: false });
 
       if (error) {
         throw error;
       }
 
       setPayments(data || []);
-      
+
       // Calculate totals
-      const completedPayments = data?.filter(p => p.payment_status === 'completed') || [];
-      const spent = completedPayments.reduce((sum, p) => sum + p.amount_dollars, 0);
-      const credits = completedPayments.reduce((sum, p) => sum + p.credits_purchased, 0);
-      
+      const completedPayments =
+        data?.filter((p) => p.payment_status === "completed") || [];
+      const spent = completedPayments.reduce(
+        (sum, p) => sum + p.amount_dollars,
+        0,
+      );
+      const credits = completedPayments.reduce(
+        (sum, p) => sum + p.credits_purchased,
+        0,
+      );
+
       setTotalSpent(spent);
       setTotalCredits(credits);
-
     } catch (error) {
-      console.error('Error fetching payment history:', error);
+      console.error("Error fetching payment history:", error);
       toast({
         title: "Error",
         description: "Failed to load payment history",
@@ -76,7 +97,7 @@ const PaymentHistory = () => {
       failed: "bg-red-100 text-red-800 hover:bg-red-100",
       refunded: "bg-blue-100 text-blue-800 hover:bg-blue-100",
     };
-    
+
     return (
       <Badge className={variants[status] || "bg-gray-100 text-gray-800"}>
         {statusDisplay}
@@ -85,19 +106,19 @@ const PaymentHistory = () => {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
   const downloadReceipt = async (sessionId: string, packageName: string) => {
     try {
       // Generate a simple receipt
-      const payment = payments.find(p => p.stripe_session_id === sessionId);
+      const payment = payments.find((p) => p.stripe_session_id === sessionId);
       if (!payment) return;
 
       const receiptText = `
@@ -115,9 +136,9 @@ Thank you for your purchase!
 Visit https://pixiesketch.com to start creating magic.
       `.trim();
 
-      const blob = new Blob([receiptText], { type: 'text/plain' });
+      const blob = new Blob([receiptText], { type: "text/plain" });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
       a.download = `pixiesketchai-receipt-${sessionId.slice(-8)}.txt`;
       document.body.appendChild(a);
@@ -143,8 +164,10 @@ Visit https://pixiesketch.com to start creating magic.
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 flex items-center justify-center p-4">
         <Card className="max-w-md w-full text-center">
           <CardContent className="pt-6">
-            <p className="text-gray-600 mb-4">Please log in to view your payment history.</p>
-            <Button onClick={() => navigate('/')}>
+            <p className="text-gray-600 mb-4">
+              Please log in to view your payment history.
+            </p>
+            <Button onClick={() => navigate("/")}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Home
             </Button>
@@ -160,13 +183,17 @@ Visit https://pixiesketch.com to start creating magic.
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center space-x-4">
-            <Button variant="ghost" onClick={() => navigate('/')}>
+            <Button variant="ghost" onClick={() => navigate("/")}>
               <ArrowLeft className="h-5 w-5 mr-2" />
               Back to Home
             </Button>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Payment History</h1>
-              <p className="text-gray-600">View your purchase history and download receipts</p>
+              <h1 className="text-2xl font-bold text-gray-900">
+                Payment History
+              </h1>
+              <p className="text-gray-600">
+                View your purchase history and download receipts
+              </p>
             </div>
           </div>
         </div>
@@ -180,7 +207,9 @@ Visit https://pixiesketch.com to start creating magic.
               <div className="flex items-center space-x-2">
                 <DollarSign className="h-8 w-8 text-green-600" />
                 <div>
-                  <p className="text-2xl font-bold text-green-600">${totalSpent.toFixed(2)}</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    ${totalSpent.toFixed(2)}
+                  </p>
                   <p className="text-sm text-gray-600">Total Spent</p>
                 </div>
               </div>
@@ -192,7 +221,9 @@ Visit https://pixiesketch.com to start creating magic.
               <div className="flex items-center space-x-2">
                 <Package className="h-8 w-8 text-purple-600" />
                 <div>
-                  <p className="text-2xl font-bold text-purple-600">{totalCredits}</p>
+                  <p className="text-2xl font-bold text-purple-600">
+                    {totalCredits}
+                  </p>
                   <p className="text-sm text-gray-600">Credits Purchased</p>
                 </div>
               </div>
@@ -204,7 +235,9 @@ Visit https://pixiesketch.com to start creating magic.
               <div className="flex items-center space-x-2">
                 <CreditCard className="h-8 w-8 text-blue-600" />
                 <div>
-                  <p className="text-2xl font-bold text-blue-600">{payments.length}</p>
+                  <p className="text-2xl font-bold text-blue-600">
+                    {payments.length}
+                  </p>
                   <p className="text-sm text-gray-600">Total Transactions</p>
                 </div>
               </div>
@@ -216,7 +249,9 @@ Visit https://pixiesketch.com to start creating magic.
               <div className="flex items-center space-x-2">
                 <Calendar className="h-8 w-8 text-orange-600" />
                 <div>
-                  <p className="text-2xl font-bold text-orange-600">{profile.credits}</p>
+                  <p className="text-2xl font-bold text-orange-600">
+                    {profile.credits}
+                  </p>
                   <p className="text-sm text-gray-600">Current Credits</p>
                 </div>
               </div>
@@ -228,13 +263,15 @@ Visit https://pixiesketch.com to start creating magic.
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-xl">Transaction History</CardTitle>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={fetchPaymentHistory}
               disabled={isLoading}
               size="sm"
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw
+                className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`}
+              />
               Refresh
             </Button>
           </CardHeader>
@@ -248,7 +285,7 @@ Visit https://pixiesketch.com to start creating magic.
               <div className="text-center py-8">
                 <CreditCard className="h-12 w-12 mx-auto mb-4 text-gray-400" />
                 <p className="text-gray-600 mb-4">No payment history found</p>
-                <Button onClick={() => navigate('/')}>
+                <Button onClick={() => navigate("/")}>
                   Start by purchasing credits
                 </Button>
               </div>
@@ -277,7 +314,9 @@ Visit https://pixiesketch.com to start creating magic.
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="font-medium">{payment.package_name}</div>
+                          <div className="font-medium">
+                            {payment.package_name}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className="font-mono">
@@ -293,13 +332,21 @@ Visit https://pixiesketch.com to start creating magic.
                           </div>
                         </TableCell>
                         <TableCell>
-                          {getStatusBadge(payment.payment_status, payment.status_display)}
+                          {getStatusBadge(
+                            payment.payment_status,
+                            payment.status_display,
+                          )}
                         </TableCell>
                         <TableCell>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => downloadReceipt(payment.stripe_session_id, payment.package_name)}
+                            onClick={() =>
+                              downloadReceipt(
+                                payment.stripe_session_id,
+                                payment.package_name,
+                              )
+                            }
                             className="text-blue-600 hover:text-blue-800"
                           >
                             <Download className="h-4 w-4 mr-1" />

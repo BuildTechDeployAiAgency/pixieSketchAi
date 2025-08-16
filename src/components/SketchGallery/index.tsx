@@ -1,6 +1,11 @@
-
 import { useState, useCallback } from "react";
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardDescription,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
@@ -24,42 +29,61 @@ interface SketchGalleryProps {
     isLoading: boolean;
     error: string | null;
     newSketchCount: number;
-    updateSketchStatus: (id: string, status: 'processing' | 'completed' | 'failed', animatedImageUrl?: string) => Promise<void>;
+    updateSketchStatus: (
+      id: string,
+      status: "processing" | "completed" | "failed",
+      animatedImageUrl?: string,
+    ) => Promise<void>;
     markSketchAsViewed: (id: string) => Promise<void>;
     deleteSketch: (id: string) => Promise<void>;
     retrySketch: (id: string) => Promise<void>;
     retryFetchSketches: () => void;
-  }
+  };
 }
 
 export const SketchGallery = ({ sketchesData }: SketchGalleryProps) => {
-  const { sketches, isLoading, error, newSketchCount, updateSketchStatus, markSketchAsViewed, deleteSketch, retrySketch, retryFetchSketches } = sketchesData;
+  const {
+    sketches,
+    isLoading,
+    error,
+    newSketchCount,
+    updateSketchStatus,
+    markSketchAsViewed,
+    deleteSketch,
+    retrySketch,
+    retryFetchSketches,
+  } = sketchesData;
 
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
-  const handleDownload = useCallback(async (imageUrl: string, filename: string) => {
-    try {
-      const response = await fetch(imageUrl);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error("Download failed", error);
-    }
-  }, []);
+  const handleDownload = useCallback(
+    async (imageUrl: string, filename: string) => {
+      try {
+        const response = await fetch(imageUrl);
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      } catch (error) {
+        console.error("Download failed", error);
+      }
+    },
+    [],
+  );
 
   if (isLoading) {
     return (
       <Card className="border-0 shadow-xl">
         <CardHeader className="text-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <CardTitle className="text-2xl text-gray-600">Loading Your Sketches...</CardTitle>
+          <CardTitle className="text-2xl text-gray-600">
+            Loading Your Sketches...
+          </CardTitle>
         </CardHeader>
       </Card>
     );
@@ -69,9 +93,14 @@ export const SketchGallery = ({ sketchesData }: SketchGalleryProps) => {
     return (
       <Card className="border-0 shadow-xl">
         <CardHeader className="text-center py-12">
-          <CardTitle className="text-2xl text-red-600 mb-4">Failed to Load Sketches</CardTitle>
+          <CardTitle className="text-2xl text-red-600 mb-4">
+            Failed to Load Sketches
+          </CardTitle>
           <CardDescription className="text-lg mb-6">{error}</CardDescription>
-          <Button onClick={retryFetchSketches} className="bg-purple-600 hover:bg-purple-700">
+          <Button
+            onClick={retryFetchSketches}
+            className="bg-purple-600 hover:bg-purple-700"
+          >
             <RefreshCw className="h-4 w-4 mr-2" />
             Try Again
           </Button>
@@ -84,7 +113,9 @@ export const SketchGallery = ({ sketchesData }: SketchGalleryProps) => {
     return (
       <Card className="border-0 shadow-xl">
         <CardHeader className="text-center py-12">
-          <CardTitle className="text-2xl text-gray-600">No Sketches Yet</CardTitle>
+          <CardTitle className="text-2xl text-gray-600">
+            No Sketches Yet
+          </CardTitle>
           <CardDescription className="text-lg">
             Upload your first drawing to see it here!
           </CardDescription>
@@ -125,7 +156,10 @@ export const SketchGallery = ({ sketchesData }: SketchGalleryProps) => {
           </div>
         </CardContent>
       </Card>
-      <ImagePreviewModal imageUrl={previewImage} onClose={() => setPreviewImage(null)} />
+      <ImagePreviewModal
+        imageUrl={previewImage}
+        onClose={() => setPreviewImage(null)}
+      />
     </div>
   );
 };

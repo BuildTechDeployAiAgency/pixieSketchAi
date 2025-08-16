@@ -4,7 +4,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, stripe-signature",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, stripe-signature",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -29,7 +30,7 @@ serve(async (req) => {
   try {
     // Get the raw body for signature verification
     const body = await req.text();
-    
+
     // Initialize Stripe
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
       apiVersion: "2023-10-16",
@@ -41,7 +42,10 @@ serve(async (req) => {
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
     } catch (err) {
       console.error(`Webhook signature verification failed: ${err.message}`);
-      return new Response(`Webhook signature verification failed: ${err.message}`, { status: 400 });
+      return new Response(
+        `Webhook signature verification failed: ${err.message}`,
+        { status: 400 },
+      );
     }
 
     console.log(`Processing webhook event: ${event.type}`);
@@ -50,34 +54,36 @@ serve(async (req) => {
     const supabaseService = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-      { auth: { persistSession: false } }
+      { auth: { persistSession: false } },
     );
 
     switch (event.type) {
-      case 'checkout.session.completed': {
+      case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
         await handleCheckoutSessionCompleted(session, supabaseService);
         break;
       }
-      
-      case 'payment_intent.succeeded': {
+
+      case "payment_intent.succeeded": {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
         await handlePaymentIntentSucceeded(paymentIntent, supabaseService);
         break;
       }
-      
-      case 'payment_intent.payment_failed': {
+
+      case "payment_intent.payment_failed": {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
         await handlePaymentIntentFailed(paymentIntent, supabaseService);
         break;
       }
-      
-      case 'invoice.payment_succeeded': {
+
+      case "invoice.payment_succeeded": {
         // For future subscription handling
-        console.log('Invoice payment succeeded (subscriptions not implemented)');
+        console.log(
+          "Invoice payment succeeded (subscriptions not implemented)",
+        );
         break;
       }
-      
+
       default:
         console.log(`Unhandled event type: ${event.type}`);
     }
@@ -86,40 +92,45 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
-
   } catch (error) {
-    console.error('Webhook error:', error);
+    console.error("Webhook error:", error);
     return new Response(
       JSON.stringify({ error: error.message || "Webhook processing failed" }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500,
-      }
+      },
     );
   }
 });
 
-async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, supabase: any) {
-  console.log('Processing checkout session completed:', session.id);
-  
+async function handleCheckoutSessionCompleted(
+  session: Stripe.Checkout.Session,
+  supabase: any,
+) {
+  console.log("Processing checkout session completed:", session.id);
+
   const credits = parseInt(session.metadata?.credits || "0");
   const userId = session.metadata?.user_id;
   const packageName = session.metadata?.package_name || `${credits} Credits`;
 
   if (!credits || credits <= 0) {
-    console.error('Invalid credits in session metadata');
+    console.error("Invalid credits in session metadata");
     return;
   }
 
   // Check if payment record already exists (idempotency protection)
   const { data: existingPayment } = await supabase
-    .from('payment_history')
-    .select('id, credits_purchased')
-    .eq('stripe_session_id', session.id)
+    .from("payment_history")
+    .select("id, credits_purchased")
+    .eq("stripe_session_id", session.id)
     .single();
 
   if (existingPayment) {
-    console.log('Payment record already exists, skipping duplicate processing:', session.id);
+    console.log(
+      "Payment record already exists, skipping duplicate processing:",
+      session.id,
+    );
     return;
   }
 
@@ -128,54 +139,54 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
     stripe_session_id: session.id,
     stripe_payment_intent_id: session.payment_intent as string,
     user_id: userId !== "guest" ? userId : null,
-    customer_email: session.customer_details?.email || 'unknown@example.com',
+    customer_email: session.customer_details?.email || "unknown@example.com",
     amount: session.amount_total || 0,
-    currency: session.currency || 'usd',
+    currency: session.currency || "usd",
     credits_purchased: credits,
     package_name: packageName,
-    payment_status: 'completed',
+    payment_status: "completed",
     created_at: new Date().toISOString(),
   };
 
   // Insert payment record
   const { error: insertError } = await supabase
-    .from('payment_history')
+    .from("payment_history")
     .insert([paymentRecord]);
 
   if (insertError) {
-    console.error('Error inserting payment record:', insertError);
+    console.error("Error inserting payment record:", insertError);
     return; // Don't process credits if payment record insert failed
   } else {
-    console.log('Payment record stored successfully');
+    console.log("Payment record stored successfully");
   }
 
   // Update user credits only for authenticated users
   if (userId && userId !== "guest") {
     const { data: profile, error: fetchError } = await supabase
-      .from('profiles')
-      .select('credits')
-      .eq('id', userId)
+      .from("profiles")
+      .select("credits")
+      .eq("id", userId)
       .single();
 
     if (fetchError) {
-      console.error('Error fetching profile for webhook:', fetchError);
+      console.error("Error fetching profile for webhook:", fetchError);
       return;
     }
 
     const newCredits = (profile?.credits || 0) + credits;
 
     const { error: updateError } = await supabase
-      .from('profiles')
-      .update({ 
+      .from("profiles")
+      .update({
         credits: newCredits,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       })
-      .eq('id', userId);
+      .eq("id", userId);
 
     if (updateError) {
-      console.error('Error updating credits via webhook:', updateError);
+      console.error("Error updating credits via webhook:", updateError);
     } else {
-      console.log('Credits updated via webhook:', { userId, newCredits });
+      console.log("Credits updated via webhook:", { userId, newCredits });
     }
   }
 
@@ -183,47 +194,56 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
   await sendEmailReceipt(session, supabase);
 }
 
-async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent, supabase: any) {
-  console.log('Payment intent succeeded:', paymentIntent.id);
-  
+async function handlePaymentIntentSucceeded(
+  paymentIntent: Stripe.PaymentIntent,
+  supabase: any,
+) {
+  console.log("Payment intent succeeded:", paymentIntent.id);
+
   // Update payment status to succeeded
   const { error } = await supabase
-    .from('payment_history')
-    .update({ 
-      payment_status: 'completed',
+    .from("payment_history")
+    .update({
+      payment_status: "completed",
       stripe_payment_intent_id: paymentIntent.id,
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     })
-    .eq('stripe_payment_intent_id', paymentIntent.id);
+    .eq("stripe_payment_intent_id", paymentIntent.id);
 
   if (error) {
-    console.error('Error updating payment status:', error);
+    console.error("Error updating payment status:", error);
   }
 }
 
-async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent, supabase: any) {
-  console.log('Payment intent failed:', paymentIntent.id);
-  
+async function handlePaymentIntentFailed(
+  paymentIntent: Stripe.PaymentIntent,
+  supabase: any,
+) {
+  console.log("Payment intent failed:", paymentIntent.id);
+
   // Update payment status to failed
   const { error } = await supabase
-    .from('payment_history')
-    .update({ 
-      payment_status: 'failed',
-      updated_at: new Date().toISOString()
+    .from("payment_history")
+    .update({
+      payment_status: "failed",
+      updated_at: new Date().toISOString(),
     })
-    .eq('stripe_payment_intent_id', paymentIntent.id);
+    .eq("stripe_payment_intent_id", paymentIntent.id);
 
   if (error) {
-    console.error('Error updating payment status:', error);
+    console.error("Error updating payment status:", error);
   }
 }
 
-async function sendEmailReceipt(session: Stripe.Checkout.Session, supabase: any) {
-  console.log('Sending email receipt for session:', session.id);
-  
+async function sendEmailReceipt(
+  session: Stripe.Checkout.Session,
+  supabase: any,
+) {
+  console.log("Sending email receipt for session:", session.id);
+
   const customerEmail = session.customer_details?.email;
   if (!customerEmail) {
-    console.log('No customer email found, skipping receipt');
+    console.log("No customer email found, skipping receipt");
     return;
   }
 
@@ -267,7 +287,7 @@ async function sendEmailReceipt(session: Stripe.Checkout.Session, supabase: any)
             </div>
             <div class="receipt-item">
               <span>Credits:</span>
-              <span><strong>${credits} transformation${credits > 1 ? 's' : ''}</strong></span>
+              <span><strong>${credits} transformation${credits > 1 ? "s" : ""}</strong></span>
             </div>
             <div class="receipt-item">
               <span>Amount Paid:</span>
@@ -316,21 +336,24 @@ async function sendEmailReceipt(session: Stripe.Checkout.Session, supabase: any)
   try {
     // For now, we'll use a simple email sending service
     // In production, integrate with SendGrid, Mailgun, or similar
-    const { error: emailError } = await supabase.functions.invoke('send-email', {
-      body: {
-        to: customerEmail,
-        subject: `✨ PixieSketch Receipt - ${packageName}`,
-        html: emailHtml,
-        from: 'receipts@pixiesketch.com'
-      }
-    });
+    const { error: emailError } = await supabase.functions.invoke(
+      "send-email",
+      {
+        body: {
+          to: customerEmail,
+          subject: `✨ PixieSketch Receipt - ${packageName}`,
+          html: emailHtml,
+          from: "receipts@pixiesketch.com",
+        },
+      },
+    );
 
     if (emailError) {
-      console.error('Error sending email receipt:', emailError);
+      console.error("Error sending email receipt:", emailError);
     } else {
-      console.log('Email receipt sent successfully to:', customerEmail);
+      console.log("Email receipt sent successfully to:", customerEmail);
     }
   } catch (error) {
-    console.error('Failed to send email receipt:', error);
+    console.error("Failed to send email receipt:", error);
   }
 }

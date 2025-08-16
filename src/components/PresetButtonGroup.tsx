@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Palette, UserRound, Camera, Loader2, Eye } from "lucide-react";
 import { PRESET_PROMPTS, PresetOption } from "@/types/presets";
@@ -10,23 +9,31 @@ interface PresetButtonGroupProps {
   processingPreset?: PresetOption | null;
 }
 
-export const PresetButtonGroup = ({ onPresetSelect, isProcessing, disabled, processingPreset }: PresetButtonGroupProps) => {
+export const PresetButtonGroup = ({
+  onPresetSelect,
+  isProcessing,
+  disabled,
+  processingPreset,
+}: PresetButtonGroupProps) => {
   const presetIcons = {
     cartoon: Palette,
     pixar: UserRound,
-    realistic: Camera
+    realistic: Camera,
   } as const;
 
   const presetColors = {
-    cartoon: "from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600",
-    pixar: "from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600", 
-    realistic: "from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600"
+    cartoon:
+      "from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600",
+    pixar:
+      "from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600",
+    realistic:
+      "from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600",
   } as const;
 
   const processingMessages = {
     cartoon: "Creating Cartoon Magic...",
     pixar: "Rendering Pixar Style...",
-    realistic: "Bringing to Life..."
+    realistic: "Bringing to Life...",
   } as const;
 
   return (
@@ -44,8 +51,9 @@ export const PresetButtonGroup = ({ onPresetSelect, isProcessing, disabled, proc
         {(Object.keys(PRESET_PROMPTS) as PresetOption[]).map((preset) => {
           const Icon = presetIcons[preset];
           const colorClass = presetColors[preset];
-          const isThisButtonProcessing = isProcessing && processingPreset === preset;
-          
+          const isThisButtonProcessing =
+            isProcessing && processingPreset === preset;
+
           return (
             <Button
               key={preset}
@@ -68,7 +76,7 @@ export const PresetButtonGroup = ({ onPresetSelect, isProcessing, disabled, proc
           );
         })}
       </div>
-      
+
       {isProcessing && (
         <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
           <div className="flex items-center gap-2 text-blue-700">

@@ -1,7 +1,6 @@
-
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface UserProfile {
   id: string;
@@ -18,7 +17,9 @@ export const useUserProfile = () => {
 
   const fetchProfile = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
         setProfile(null);
         setIsLoading(false);
@@ -26,13 +27,13 @@ export const useUserProfile = () => {
       }
 
       const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
         .single();
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching profile:', error);
+      if (error && error.code !== "PGRST116") {
+        console.error("Error fetching profile:", error);
         toast({
           title: "Error",
           description: "Failed to load user profile",
@@ -45,19 +46,19 @@ export const useUserProfile = () => {
       if (!data) {
         const credits = 10; // Standard starting credits for all new users
         const { data: newProfile, error: createError } = await supabase
-          .from('profiles')
+          .from("profiles")
           .insert([
             {
               id: user.id,
               email: user.email,
-              credits
-            }
+              credits,
+            },
           ])
           .select()
           .single();
 
         if (createError) {
-          console.error('Error creating profile:', createError);
+          console.error("Error creating profile:", createError);
           return;
         }
 
@@ -66,7 +67,7 @@ export const useUserProfile = () => {
         setProfile(data);
       }
     } catch (error) {
-      console.error('Error in fetchProfile:', error);
+      console.error("Error in fetchProfile:", error);
     } finally {
       setIsLoading(false);
     }
@@ -74,19 +75,21 @@ export const useUserProfile = () => {
 
   const updateCredits = async (newCredits: number) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user || !profile) return;
 
       const { error } = await supabase
-        .from('profiles')
-        .update({ 
+        .from("profiles")
+        .update({
           credits: newCredits,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
-        .eq('id', user.id);
+        .eq("id", user.id);
 
       if (error) {
-        console.error('Error updating credits:', error);
+        console.error("Error updating credits:", error);
         toast({
           title: "Error",
           description: "Failed to update credits",
@@ -95,9 +98,9 @@ export const useUserProfile = () => {
         return;
       }
 
-      setProfile(prev => prev ? { ...prev, credits: newCredits } : null);
+      setProfile((prev) => (prev ? { ...prev, credits: newCredits } : null));
     } catch (error) {
-      console.error('Error updating credits:', error);
+      console.error("Error updating credits:", error);
     }
   };
 
@@ -106,15 +109,17 @@ export const useUserProfile = () => {
     fetchProfile();
 
     // Listen for auth changes and refetch profile
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state changed in useUserProfile:', event, !!session);
-      
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth state changed in useUserProfile:", event, !!session);
+
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
         // Delay to ensure session is fully established
         setTimeout(() => {
           fetchProfile();
         }, 100);
-      } else if (event === 'SIGNED_OUT') {
+      } else if (event === "SIGNED_OUT") {
         setProfile(null);
         setIsLoading(false);
       }
@@ -122,24 +127,26 @@ export const useUserProfile = () => {
 
     // Set up real-time subscription for profile changes
     let profileSubscription: any = null;
-    
+
     const setupRealtimeSubscription = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (user) {
         profileSubscription = supabase
           .channel(`profile-${user.id}`)
           .on(
-            'postgres_changes',
+            "postgres_changes",
             {
-              event: 'UPDATE',
-              schema: 'public',
-              table: 'profiles',
-              filter: `id=eq.${user.id}`
+              event: "UPDATE",
+              schema: "public",
+              table: "profiles",
+              filter: `id=eq.${user.id}`,
             },
             (payload) => {
-              console.log('Profile updated via realtime:', payload.new);
+              console.log("Profile updated via realtime:", payload.new);
               setProfile(payload.new as UserProfile);
-            }
+            },
           )
           .subscribe();
       }
@@ -159,6 +166,6 @@ export const useUserProfile = () => {
     profile,
     isLoading,
     updateCredits,
-    refreshProfile: fetchProfile
+    refreshProfile: fetchProfile,
   };
 };

@@ -1,4 +1,3 @@
-
 import { useNavigate } from "react-router-dom";
 import { XCircle, ArrowLeft, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -30,16 +29,16 @@ const PaymentCanceled = () => {
           </div>
 
           <div className="space-y-3">
-            <Button 
-              onClick={() => navigate('/')} 
+            <Button
+              onClick={() => navigate("/")}
               className="w-full bg-purple-600 hover:bg-purple-700"
             >
               <CreditCard className="h-4 w-4 mr-2" />
               Try Payment Again
             </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => navigate('/')}
+            <Button
+              variant="outline"
+              onClick={() => navigate("/")}
               className="w-full"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />

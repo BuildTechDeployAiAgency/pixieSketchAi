@@ -1,30 +1,10 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-
-const allowedOrigins = [
-  'http://localhost:8080',
-  'https://pixie-sketch-ai.vercel.app',
-  'https://pixiesketch.com',
-  'https://www.pixiesketch.com'
-];
-
-function getCorsHeaders(origin: string | null) {
-  const allowedOrigin = origin && allowedOrigins.includes(origin) ? origin : null;
-  
-  return {
-    'Access-Control-Allow-Origin': allowedOrigin || 'null',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Max-Age': '86400',
-    'Access-Control-Allow-Credentials': 'true'
-  };
-}
+import { getCorsHeaders, handleCorsRequest } from "../_shared/cors.ts";
 
 serve(async (req) => {
-  const corsHeaders = getCorsHeaders(req.headers.get('Origin'));
-  
-  // Handle CORS preflight requests
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+  const corsResponse = handleCorsRequest(req);
+  if (corsResponse) {
+    return corsResponse;
   }
 
   try {
@@ -33,10 +13,10 @@ serve(async (req) => {
     if (!to || !subject || !html) {
       return new Response(
         JSON.stringify({ error: "Missing required fields: to, subject, html" }),
-        { 
+        {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 400 
-        }
+          status: 400,
+        },
       );
     }
 
@@ -48,10 +28,10 @@ serve(async (req) => {
       console.error("EMAIL_API_KEY not configured");
       return new Response(
         JSON.stringify({ error: "Email service not configured" }),
-        { 
+        {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 500 
-        }
+          status: 500,
+        },
       );
     }
 
@@ -62,7 +42,7 @@ serve(async (req) => {
       emailResponse = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${apiKey}`,
+          Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -77,12 +57,15 @@ serve(async (req) => {
       emailResponse = await fetch("https://api.sendgrid.com/v3/mail/send", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${apiKey}`,
+          Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           personalizations: [{ to: [{ email: to }] }],
-          from: { email: from || "receipts@pixiesketch.com", name: "PixieSketch" },
+          from: {
+            email: from || "receipts@pixiesketch.com",
+            name: "PixieSketch",
+          },
           subject,
           content: [{ type: "text/html", value: html }],
         }),
@@ -93,36 +76,42 @@ serve(async (req) => {
 
     if (!emailResponse.ok) {
       const errorText = await emailResponse.text();
-      console.error(`Email service error (${emailResponse.status}):`, errorText);
+      console.error(
+        `Email service error (${emailResponse.status}):`,
+        errorText,
+      );
       throw new Error(`Email service error: ${emailResponse.status}`);
     }
 
     const result = await emailResponse.json();
-    console.log("Email sent successfully:", { to, subject, emailId: result.id });
+    console.log("Email sent successfully:", {
+      to,
+      subject,
+      emailId: result.id,
+    });
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         message: "Email sent successfully",
-        emailId: result.id 
+        emailId: result.id,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
-      }
+      },
     );
-
   } catch (error) {
     console.error("Email sending error:", error);
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         error: error.message || "Failed to send email",
-        success: false 
+        success: false,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500,
-      }
+      },
     );
   }
 });

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { CreditCard, X, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,7 +17,11 @@ interface PaymentModalProps {
   isAuthenticated: boolean;
 }
 
-export const PaymentModal = ({ isOpen, onClose, isAuthenticated }: PaymentModalProps) => {
+export const PaymentModal = ({
+  isOpen,
+  onClose,
+  isAuthenticated,
+}: PaymentModalProps) => {
   const [loadingButtonId, setLoadingButtonId] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -34,31 +37,35 @@ export const PaymentModal = ({ isOpen, onClose, isAuthenticated }: PaymentModalP
 
     const buttonId = `${amount}-credits`;
     setLoadingButtonId(buttonId);
-    
+
     try {
-      console.log('Initiating payment:', { amount, price });
-      
-      const { data, error } = await supabase.functions.invoke('create-payment', {
-        body: {
-          amount: price,
-          credits: amount,
-        }
-      });
+      console.log("Initiating payment:", { amount, price });
+
+      const { data, error } = await supabase.functions.invoke(
+        "create-payment",
+        {
+          body: {
+            amount: price,
+            credits: amount,
+          },
+        },
+      );
 
       if (error) {
-        console.error('Payment error:', error);
+        console.error("Payment error:", error);
         toast({
           title: "Payment Failed",
-          description: error.message || "Failed to initiate payment. Please try again.",
+          description:
+            error.message || "Failed to initiate payment. Please try again.",
           variant: "destructive",
         });
         return;
       }
 
       if (data?.url) {
-        console.log('Redirecting to Stripe checkout:', data.url);
+        console.log("Redirecting to Stripe checkout:", data.url);
         // Open Stripe checkout in a new tab
-        window.open(data.url, '_blank');
+        window.open(data.url, "_blank");
         toast({
           title: "Redirecting to Payment",
           description: "Opening Stripe checkout in a new tab...",
@@ -66,10 +73,10 @@ export const PaymentModal = ({ isOpen, onClose, isAuthenticated }: PaymentModalP
         // Close modal after initiating payment
         onClose();
       } else {
-        throw new Error('No checkout URL received');
+        throw new Error("No checkout URL received");
       }
     } catch (error) {
-      console.error('Unexpected payment error:', error);
+      console.error("Unexpected payment error:", error);
       toast({
         title: "Payment Error",
         description: "An unexpected error occurred. Please try again.",
@@ -84,9 +91,11 @@ export const PaymentModal = ({ isOpen, onClose, isAuthenticated }: PaymentModalP
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-center text-xl">Choose Your Magic Pack</DialogTitle>
+          <DialogTitle className="text-center text-xl">
+            Choose Your Magic Pack
+          </DialogTitle>
         </DialogHeader>
-        
+
         <div className="space-y-4">
           {/* Single Magic - 1 Credit */}
           <div className="border-2 border-gray-200 rounded-lg p-4 bg-white">
@@ -97,13 +106,15 @@ export const PaymentModal = ({ isOpen, onClose, isAuthenticated }: PaymentModalP
               <h3 className="text-lg font-semibold">Single Magic</h3>
               <div className="text-2xl font-bold text-blue-600">$1.00</div>
               <p className="text-gray-600">1 transformation</p>
-              <Button 
+              <Button
                 className="w-full bg-blue-600 hover:bg-blue-700"
-                onClick={() => handleBuyCredits(1, 1.00)}
-                disabled={loadingButtonId === '1-credits'}
+                onClick={() => handleBuyCredits(1, 1.0)}
+                disabled={loadingButtonId === "1-credits"}
               >
                 <CreditCard className="h-4 w-4 mr-2" />
-                {loadingButtonId === '1-credits' ? "Processing..." : "Buy 1 Credit"}
+                {loadingButtonId === "1-credits"
+                  ? "Processing..."
+                  : "Buy 1 Credit"}
               </Button>
             </div>
           </div>
@@ -120,13 +131,15 @@ export const PaymentModal = ({ isOpen, onClose, isAuthenticated }: PaymentModalP
               <h3 className="text-lg font-semibold">Magic Pack</h3>
               <div className="text-3xl font-bold text-purple-600">$4.99</div>
               <p className="text-gray-600">10 transformations</p>
-              <Button 
+              <Button
                 className="w-full bg-purple-600 hover:bg-purple-700"
                 onClick={() => handleBuyCredits(10, 4.99)}
-                disabled={loadingButtonId === '10-credits'}
+                disabled={loadingButtonId === "10-credits"}
               >
                 <CreditCard className="h-4 w-4 mr-2" />
-                {loadingButtonId === '10-credits' ? "Processing..." : "Buy 10 Credits"}
+                {loadingButtonId === "10-credits"
+                  ? "Processing..."
+                  : "Buy 10 Credits"}
               </Button>
             </div>
           </div>
@@ -143,13 +156,15 @@ export const PaymentModal = ({ isOpen, onClose, isAuthenticated }: PaymentModalP
               <h3 className="text-lg font-semibold">Super Magic Pack</h3>
               <div className="text-3xl font-bold text-purple-600">$9.99</div>
               <p className="text-gray-600">25 transformations</p>
-              <Button 
+              <Button
                 className="w-full bg-purple-600 hover:bg-purple-700"
                 onClick={() => handleBuyCredits(25, 9.99)}
-                disabled={loadingButtonId === '25-credits'}
+                disabled={loadingButtonId === "25-credits"}
               >
                 <CreditCard className="h-4 w-4 mr-2" />
-                {loadingButtonId === '25-credits' ? "Processing..." : "Best Value Pack"}
+                {loadingButtonId === "25-credits"
+                  ? "Processing..."
+                  : "Best Value Pack"}
               </Button>
             </div>
           </div>

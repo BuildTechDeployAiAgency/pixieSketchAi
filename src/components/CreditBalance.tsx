@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { CreditCard, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,7 +9,10 @@ interface CreditBalanceProps {
   isAuthenticated?: boolean;
 }
 
-export const CreditBalance = ({ credits, isAuthenticated = false }: CreditBalanceProps) => {
+export const CreditBalance = ({
+  credits,
+  isAuthenticated = false,
+}: CreditBalanceProps) => {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
   return (
@@ -20,8 +22,8 @@ export const CreditBalance = ({ credits, isAuthenticated = false }: CreditBalanc
           <CreditCard className="h-4 w-4 mr-1" />
           {credits} Credits
         </Badge>
-        <Button 
-          size="sm" 
+        <Button
+          size="sm"
           className="bg-purple-600 hover:bg-purple-700"
           onClick={() => setIsPaymentModalOpen(true)}
         >
@@ -30,7 +32,7 @@ export const CreditBalance = ({ credits, isAuthenticated = false }: CreditBalanc
         </Button>
       </div>
 
-      <PaymentModal 
+      <PaymentModal
         isOpen={isPaymentModalOpen}
         onClose={() => setIsPaymentModalOpen(false)}
         isAuthenticated={isAuthenticated}

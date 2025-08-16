@@ -1,57 +1,35 @@
-
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-
-const allowedOrigins = [
-  'http://localhost:8080',
-  'https://pixie-sketch-ai.vercel.app',
-  'https://pixiesketch.com',
-  'https://www.pixiesketch.com'
-];
-
-function getCorsHeaders(origin: string | null) {
-  const allowedOrigin = origin && allowedOrigins.includes(origin) ? origin : null;
-  
-  return {
-    'Access-Control-Allow-Origin': allowedOrigin || 'null',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Max-Age': '86400',
-    'Access-Control-Allow-Credentials': 'true'
-  };
-}
+import { getCorsHeaders, handleCorsRequest } from "../_shared/cors.ts";
 
 serve(async (req) => {
-  const origin = req.headers.get('Origin');
-  const corsHeaders = getCorsHeaders(origin);
-  
-  // Handle CORS preflight requests
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+  const corsResponse = handleCorsRequest(req);
+  if (corsResponse) {
+    return corsResponse;
   }
 
   try {
     // Parse request body
     const { amount, credits } = await req.json();
-    
-    console.log('Payment request received:', { amount, credits });
+
+    console.log("Payment request received:", { amount, credits });
 
     // Validate input
     if (!amount || !credits || amount <= 0 || credits <= 0) {
       return new Response(
-        JSON.stringify({ error: "Invalid amount or credits" }), 
-        { 
+        JSON.stringify({ error: "Invalid amount or credits" }),
+        {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 400 
-        }
+          status: 400,
+        },
       );
     }
 
     // Create Supabase client
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
     );
 
     // Get user from auth header
@@ -68,7 +46,7 @@ serve(async (req) => {
       }
     }
 
-    console.log('User authenticated:', !!user, 'Email:', userEmail);
+    console.log("User authenticated:", !!user, "Email:", userEmail);
 
     // Initialize Stripe
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
@@ -76,15 +54,15 @@ serve(async (req) => {
     });
 
     // Check for existing Stripe customer
-    const customers = await stripe.customers.list({ 
-      email: userEmail, 
-      limit: 1 
+    const customers = await stripe.customers.list({
+      email: userEmail,
+      limit: 1,
     });
-    
+
     let customerId;
     if (customers.data.length > 0) {
       customerId = customers.data[0].id;
-      console.log('Found existing customer:', customerId);
+      console.log("Found existing customer:", customerId);
     }
 
     // Define product names based on credits
@@ -105,9 +83,9 @@ serve(async (req) => {
         {
           price_data: {
             currency: "usd",
-            product_data: { 
+            product_data: {
               name: productName,
-              description: `${credits} transformation${credits > 1 ? 's' : ''} for MagicSketch AI`
+              description: `${credits} transformation${credits > 1 ? "s" : ""} for MagicSketch AI`,
             },
             unit_amount: Math.round(amount * 100), // Convert to cents
           },
@@ -121,27 +99,24 @@ serve(async (req) => {
         user_id: user?.id || "guest",
         credits: credits.toString(),
         amount: amount.toString(),
-        package_name: productName
-      }
+        package_name: productName,
+      },
     });
 
-    console.log('Stripe session created:', session.id);
+    console.log("Stripe session created:", session.id);
 
-    return new Response(
-      JSON.stringify({ url: session.url }), 
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      }
-    );
+    return new Response(JSON.stringify({ url: session.url }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200,
+    });
   } catch (error) {
-    console.error('Payment error:', error);
+    console.error("Payment error:", error);
     return new Response(
-      JSON.stringify({ error: error.message || "Payment failed" }), 
+      JSON.stringify({ error: error.message || "Payment failed" }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500,
-      }
+      },
     );
   }
 });

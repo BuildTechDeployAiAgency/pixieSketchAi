@@ -1,9 +1,9 @@
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAdminAuth } from '@/hooks/useAdminAuth';
-import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, Shield, AlertTriangle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
+import { Card, CardContent } from "@/components/ui/card";
+import { Loader2, Shield, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface AdminRouteProps {
   children: React.ReactNode;
@@ -16,7 +16,7 @@ export const AdminRoute = ({ children }: AdminRouteProps) => {
   useEffect(() => {
     if (!isLoading && !user) {
       // Not authenticated at all, redirect to home
-      navigate('/');
+      navigate("/");
     }
   }, [isLoading, user, navigate]);
 
@@ -39,11 +39,13 @@ export const AdminRoute = ({ children }: AdminRouteProps) => {
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center">
             <Shield className="h-8 w-8 mx-auto mb-4 text-gray-400" />
-            <h2 className="text-xl font-semibold mb-2">Authentication Required</h2>
-            <p className="text-gray-600 mb-4">Please sign in to access this area.</p>
-            <Button onClick={() => navigate('/')}>
-              Go to Home
-            </Button>
+            <h2 className="text-xl font-semibold mb-2">
+              Authentication Required
+            </h2>
+            <p className="text-gray-600 mb-4">
+              Please sign in to access this area.
+            </p>
+            <Button onClick={() => navigate("/")}>Go to Home</Button>
           </CardContent>
         </Card>
       </div>
@@ -57,11 +59,13 @@ export const AdminRoute = ({ children }: AdminRouteProps) => {
           <CardContent className="pt-6 text-center">
             <AlertTriangle className="h-8 w-8 mx-auto mb-4 text-red-500" />
             <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
-            <p className="text-gray-600 mb-2">You don't have admin privileges.</p>
-            <p className="text-sm text-gray-500 mb-4">Current user: {user.email}</p>
-            <Button onClick={() => navigate('/')}>
-              Go to Home
-            </Button>
+            <p className="text-gray-600 mb-2">
+              You don't have admin privileges.
+            </p>
+            <p className="text-sm text-gray-500 mb-4">
+              Current user: {user.email}
+            </p>
+            <Button onClick={() => navigate("/")}>Go to Home</Button>
           </CardContent>
         </Card>
       </div>
