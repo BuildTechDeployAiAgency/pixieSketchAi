@@ -23,8 +23,6 @@ import {
 } from "./openai-service.ts";
 import { checkRateLimit } from "./rate-limit.ts";
 
-const corsHeaders = getCorsHeaders(null);
-
 const PRESET_PROMPTS = {
   cartoon:
     "Please convert the uploaded children's drawing into a clean, 2-D hand-drawn cartoon. Keep every line, shape, and character exactly where the child placed them, but redraw with smooth bold outlines, flat vibrant colors, and minimal shading. Preserve the whimsical imperfections so it still feels like a kid's artwork, just in polished Saturday-morning-cartoon style.",
@@ -134,6 +132,21 @@ serve(async (req) => {
     return corsResponse;
   }
 
+  // Helper function to update CORS headers in responses
+  const updateCorsHeaders = (response: Response): Response => {
+    const origin = req.headers.get("Origin");
+    const corsHeaders = getCorsHeaders(origin);
+    const newHeaders = new Headers(response.headers);
+    Object.entries(corsHeaders).forEach(([key, value]) => {
+      newHeaders.set(key, value);
+    });
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: newHeaders,
+    });
+  };
+
   let sketchId = "";
   const requestStartTime = Date.now();
 
@@ -142,7 +155,7 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     const authHeaderValidation = validateAuthHeader(authHeader);
     if (!authHeaderValidation.isValid) {
-      return authHeaderValidation.response!;
+      return updateCorsHeaders(authHeaderValidation.response!);
     }
 
     // Step 2: Initialize Supabase client
@@ -163,7 +176,7 @@ serve(async (req) => {
     } = await supabase.auth.getUser();
     const userValidation = validateUser(user, authError);
     if (!userValidation.isValid) {
-      return userValidation.response!;
+      return updateCorsHeaders(userValidation.response!);
     }
 
     logWithContext("info", "Authenticated user:", { userId: (user as any).id });
@@ -171,7 +184,7 @@ serve(async (req) => {
     // Step 4: Check rate limiting
     const rateLimitCheck = checkRateLimit((user as any).id);
     if (!rateLimitCheck.allowed) {
-      return rateLimitCheck.response!;
+      return updateCorsHeaders(rateLimitCheck.response!);
     }
 
     // Step 5: Parse and validate request body
@@ -187,17 +200,17 @@ serve(async (req) => {
 
     const fieldsValidation = validateRequestFields(imageData, preset, sketchId);
     if (!fieldsValidation.isValid) {
-      return fieldsValidation.response!;
+      return updateCorsHeaders(fieldsValidation.response!);
     }
 
     const imageDataValidation = validateImageData(imageData);
     if (!imageDataValidation.isValid) {
-      return imageDataValidation.response!;
+      return updateCorsHeaders(imageDataValidation.response!);
     }
 
     const presetValidation = validatePreset(preset, PRESET_PROMPTS);
     if (!presetValidation.isValid) {
-      return presetValidation.response!;
+      return updateCorsHeaders(presetValidation.response!);
     }
 
     // Step 6: Validate OpenAI API key
@@ -210,21 +223,21 @@ serve(async (req) => {
         new Error("OpenAI API key missing"),
         "initialization",
       );
-      return openAIValidation.response!;
+      return updateCorsHeaders(openAIValidation.response!);
     }
 
     // Step 7: Check user credits
     logWithContext("info", "Checking user credits...");
     const creditCheck = await checkUserCredits(supabase, (user as any).id);
     if (!creditCheck.hasCredits) {
-      return creditCheck.response!;
+      return updateCorsHeaders(creditCheck.response!);
     }
 
     // Step 8: Check budget limits
     logWithContext("info", "Checking budget limits...");
     const budgetCheck = await checkBudgetLimits(supabase);
     if (!budgetCheck.allowed) {
-      return budgetCheck.response!;
+      return updateCorsHeaders(budgetCheck.response!);
     }
 
     logWithContext("info", "User has sufficient credits", {
@@ -267,7 +280,7 @@ serve(async (req) => {
             success: false,
           }),
           {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            headers: { ...getCorsHeaders(req.headers.get("Origin")), "Content-Type": "application/json" },
             status: 500,
           },
         );
@@ -292,7 +305,7 @@ serve(async (req) => {
           usedFallback: true,
         }),
         {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...getCorsHeaders(req.headers.get("Origin")), "Content-Type": "application/json" },
           status: 200,
         },
       );
@@ -319,7 +332,7 @@ serve(async (req) => {
           success: false,
         }),
         {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...getCorsHeaders(req.headers.get("Origin")), "Content-Type": "application/json" },
           status: 500,
         },
       );
@@ -376,7 +389,7 @@ serve(async (req) => {
         enhancedPrompt: visionResult.enhancedPrompt!.substring(0, 100) + "...",
       }),
       {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCorsHeaders(req.headers.get("Origin")), "Content-Type": "application/json" },
         status: 200,
       },
     );
@@ -413,7 +426,7 @@ serve(async (req) => {
         processingTimeMs: processingTime,
       }),
       {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCorsHeaders(req.headers.get("Origin")), "Content-Type": "application/json" },
         status: 500,
       },
     );
