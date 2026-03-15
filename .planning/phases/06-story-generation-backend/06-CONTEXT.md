@@ -21,7 +21,7 @@ Build the backend that accepts a transformed character image + story theme and p
 
 ### Generation Timing
 - Async with polling — same pattern as video generation (submit triggers background work, client polls for status)
-- Story generation is added as a new content type / preset within the existing `process-sketch` edge function, not a separate edge function
+- Story generation lives in a **separate `generate-story` edge function** (not inside `process-sketch`) — keeps process-sketch focused on image/video transforms; generate-story is independently deployable and debuggable
 - User sees a simple spinner + "Generating your story..." status text while polling — no page-by-page progress needed
 
 ### Data Model
@@ -39,7 +39,6 @@ Build the backend that accepts a transformed character image + story theme and p
 
 ### Claude's Discretion
 - Exact GPT prompt structure for generating the 5-page story text (JSON response with page array)
-- How the `process-sketch` function branches to story mode (content_type param or separate preset key)
 - Supabase Storage bucket path for story illustration images
 - Error handling if one page illustration fails mid-generation (retry or fail whole story)
 
