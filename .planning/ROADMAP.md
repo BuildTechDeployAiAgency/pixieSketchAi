@@ -35,7 +35,12 @@ Phases 1–5 delivered: photo upload, gpt-image-1 transformation, fal.ai video a
   2. A 5–8 page story is returned with unique per-page illustration, each depicting the same character appearance
   3. Story generation costs exactly 5 credits, deducted only after successful generation
   4. Story data (text + illustration URLs) is persisted to Supabase and scoped to the user
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 06-01-PLAN.md — Database schema: stories + story_pages tables with RLS, TypeScript types
+- [ ] 06-02-PLAN.md — generate-story edge function: story text + per-page illustrations + credit deduction
+- [ ] 06-03-PLAN.md — poll-story edge function + useStories hook + HomeScreen story creation UI
 
 ### Phase 7: Story Reader + PDF Export
 **Goal**: Users can read their generated story page-by-page inside the app and export it as a shareable PDF
@@ -65,6 +70,6 @@ Phases 1–5 delivered: photo upload, gpt-image-1 transformation, fal.ai video a
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1–5. Core App | v1.0 | — | Complete | 2026-03-15 |
-| 6. Story Generation Backend | v2.0 | 0/? | Not started | - |
+| 6. Story Generation Backend | v2.0 | 0/3 | Planned | - |
 | 7. Story Reader + PDF Export | v2.0 | 0/? | Not started | - |
 | 8. Videobook | v2.0 | 0/? | Not started | - |
