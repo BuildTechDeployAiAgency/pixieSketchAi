@@ -20,7 +20,7 @@ Phases 1–5 delivered: photo upload, gpt-image-1 transformation, fal.ai video a
 
 **Milestone Goal:** Turn a user's transformed character into a full AI-generated storybook — multi-page, illustrated, exportable — with a premium Videobook upsell.
 
-- [ ] **Phase 6: Story Generation Backend** — Edge function that produces story text + per-page illustrations with character consistency
+- [x] **Phase 6: Story Generation Backend** — Edge function that produces story text + per-page illustrations with character consistency (completed 2026-03-16)
 - [ ] **Phase 7: Story Reader + PDF Export** — In-app page-by-page reader and downloadable PDF
 - [ ] **Phase 8: Videobook** — Animated story pages with AI narration and in-app playback
 
@@ -70,6 +70,6 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1–5. Core App | v1.0 | — | Complete | 2026-03-15 |
-| 6. Story Generation Backend | 2/3 | In Progress|  | - |
+| 6. Story Generation Backend | 3/3 | Complete   | 2026-03-16 | - |
 | 7. Story Reader + PDF Export | v2.0 | 0/? | Not started | - |
 | 8. Videobook | v2.0 | 0/? | Not started | - |

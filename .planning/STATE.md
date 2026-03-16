@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Storytelling
 status: planning
-stopped_at: Completed 06-story-generation-backend 06-02-PLAN.md
-last_updated: "2026-03-16T03:04:13.950Z"
+stopped_at: "Completed 06-story-generation-backend 06-03-PLAN.md (checkpoint: awaiting human verify)"
+last_updated: "2026-03-16T03:10:04.706Z"
 last_activity: 2026-03-15 — v2.0 roadmap created, phases 6–8 defined
 progress:
   total_phases: 3
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
+  completed_plans: 3
   percent: 38
 ---
 
@@ -50,6 +50,7 @@ Progress: [████████░░░░░░░░░░░░] ~38% (v
 *Updated after each plan completion*
 | Phase 06-story-generation-backend P01 | 6 | 2 tasks | 2 files |
 | Phase 06-story-generation-backend P02 | 4 | 2 tasks | 2 files |
+| Phase 06-story-generation-backend P03 | 4 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -63,6 +64,8 @@ Progress: [████████░░░░░░░░░░░░] ~38% (v
 - [Phase 06-story-generation-backend]: page_count stored on stories row (not derived) to avoid aggregation overhead on every gallery read
 - [Phase 06-story-generation-backend]: Per-page illustration failures are non-fatal: story continues with null illustration_url rather than failing the whole story
 - [Phase 06-story-generation-backend]: generate-story fire-and-forget: returns storyId immediately, async generation runs out-of-band via detached promise
+- [Phase 06-story-generation-backend]: poll-story is a pure status read with ownership check — no generation logic, mirrors poll-video structure
+- [Phase 06-story-generation-backend]: Story mode added to HomeScreen as a toggle, not a new screen — keeps navigation flat for v2.0 MVP
 
 ### Pending Todos
 
@@ -75,6 +78,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-16T03:04:13.947Z
-Stopped at: Completed 06-story-generation-backend 06-02-PLAN.md
+Last session: 2026-03-16T03:10:04.703Z
+Stopped at: Completed 06-story-generation-backend 06-03-PLAN.md (checkpoint: awaiting human verify)
 Resume file: None
