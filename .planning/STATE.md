@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Storytelling
 status: planning
-stopped_at: Phase 6 context gathered
-last_updated: "2026-03-15T16:55:11.306Z"
+stopped_at: Completed 06-story-generation-backend 06-01-PLAN.md
+last_updated: "2026-03-16T02:57:20.062Z"
 last_activity: 2026-03-15 — v2.0 roadmap created, phases 6–8 defined
 progress:
   total_phases: 3
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 3
+  completed_plans: 1
   percent: 38
 ---
 
@@ -48,6 +48,7 @@ Progress: [████████░░░░░░░░░░░░] ~38% (v
 **Recent Trend:** Not yet tracked
 
 *Updated after each plan completion*
+| Phase 06-story-generation-backend P01 | 6 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -57,6 +58,8 @@ Progress: [████████░░░░░░░░░░░░] ~38% (v
 - [v1.0]: expo-web-browser openAuthSessionAsync for Stripe — fixes deep-link return on iOS
 - [v2.0]: Character consistency via gpt-image-1 with reference image on every page illustration
 - [v2.0]: Story = 5 credits flat, Videobook = 10 credits, deducted on success only
+- [Phase 06-story-generation-backend]: story_pages INSERT/UPDATE RLS uses WITH CHECK (true) — edge functions run as service role and bypass per-user auth
+- [Phase 06-story-generation-backend]: page_count stored on stories row (not derived) to avoid aggregation overhead on every gallery read
 
 ### Pending Todos
 
@@ -69,6 +72,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-15T16:55:11.302Z
-Stopped at: Phase 6 context gathered
-Resume file: .planning/phases/06-story-generation-backend/06-CONTEXT.md
+Last session: 2026-03-16T02:57:20.060Z
+Stopped at: Completed 06-story-generation-backend 06-01-PLAN.md
+Resume file: None

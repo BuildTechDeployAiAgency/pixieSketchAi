@@ -31,11 +31,11 @@
 ## v2 Requirements (Active — Milestone v2.0 Storytelling)
 
 ### Story Generation
-- [ ] **STORY-01**: User can select a transformed character from their gallery to start a story
-- [ ] **STORY-02**: User can enter a story theme/prompt (e.g. "goes on a space adventure")
-- [ ] **STORY-03**: AI generates a 5–8 page story with text tailored to the character
-- [ ] **STORY-04**: AI generates a unique illustration for each page, consistent with the character
-- [ ] **STORY-05**: Story generation costs 5 credits (flat fee, deducted on success)
+- [x] **STORY-01**: User can select a transformed character from their gallery to start a story
+- [x] **STORY-02**: User can enter a story theme/prompt (e.g. "goes on a space adventure")
+- [x] **STORY-03**: AI generates a 5–8 page story with text tailored to the character
+- [x] **STORY-04**: AI generates a unique illustration for each page, consistent with the character
+- [x] **STORY-05**: Story generation costs 5 credits (flat fee, deducted on success)
 - [ ] **STORY-06**: User can read the generated story page-by-page in an in-app reader
 
 ### Export
@@ -48,7 +48,7 @@
 - [ ] **VID-03**: User can play the Videobook inside the app
 
 ### Character Consistency
-- [ ] **CHAR-01**: Story illustrations maintain the character's appearance across all pages
+- [x] **CHAR-01**: Story illustrations maintain the character's appearance across all pages
 
 ---
 
@@ -73,15 +73,15 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| STORY-01 | Phase 6 | Pending |
-| STORY-02 | Phase 6 | Pending |
-| STORY-03 | Phase 6 | Pending |
-| STORY-04 | Phase 6 | Pending |
-| STORY-05 | Phase 6 | Pending |
+| STORY-01 | Phase 6 | Complete |
+| STORY-02 | Phase 6 | Complete |
+| STORY-03 | Phase 6 | Complete |
+| STORY-04 | Phase 6 | Complete |
+| STORY-05 | Phase 6 | Complete |
 | STORY-06 | Phase 7 | Pending |
 | EXPORT-01 | Phase 7 | Pending |
 | EXPORT-02 | Phase 7 | Pending |
-| CHAR-01 | Phase 6 | Pending |
+| CHAR-01 | Phase 6 | Complete |
 | VID-01 | Phase 8 | Pending |
 | VID-02 | Phase 8 | Pending |
 | VID-03 | Phase 8 | Pending |
