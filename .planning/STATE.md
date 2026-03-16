@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Storytelling
 status: planning
-stopped_at: Completed 06-story-generation-backend 06-01-PLAN.md
-last_updated: "2026-03-16T02:57:20.062Z"
+stopped_at: Completed 06-story-generation-backend 06-02-PLAN.md
+last_updated: "2026-03-16T03:04:13.950Z"
 last_activity: 2026-03-15 — v2.0 roadmap created, phases 6–8 defined
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
   percent: 38
 ---
 
@@ -49,6 +49,7 @@ Progress: [████████░░░░░░░░░░░░] ~38% (v
 
 *Updated after each plan completion*
 | Phase 06-story-generation-backend P01 | 6 | 2 tasks | 2 files |
+| Phase 06-story-generation-backend P02 | 4 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -60,6 +61,8 @@ Progress: [████████░░░░░░░░░░░░] ~38% (v
 - [v2.0]: Story = 5 credits flat, Videobook = 10 credits, deducted on success only
 - [Phase 06-story-generation-backend]: story_pages INSERT/UPDATE RLS uses WITH CHECK (true) — edge functions run as service role and bypass per-user auth
 - [Phase 06-story-generation-backend]: page_count stored on stories row (not derived) to avoid aggregation overhead on every gallery read
+- [Phase 06-story-generation-backend]: Per-page illustration failures are non-fatal: story continues with null illustration_url rather than failing the whole story
+- [Phase 06-story-generation-backend]: generate-story fire-and-forget: returns storyId immediately, async generation runs out-of-band via detached promise
 
 ### Pending Todos
 
@@ -72,6 +75,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-16T02:57:20.060Z
-Stopped at: Completed 06-story-generation-backend 06-01-PLAN.md
+Last session: 2026-03-16T03:04:13.947Z
+Stopped at: Completed 06-story-generation-backend 06-02-PLAN.md
 Resume file: None
