@@ -33,10 +33,45 @@ export type Database = {
         };
         Relationships: [];
       };
+      payment_history: {
+        Row: {
+          id: string;
+          user_id: string;
+          amount: number;
+          credits: number;
+          status: string;
+          package_name: string | null;
+          stripe_session_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          amount: number;
+          credits: number;
+          status?: string;
+          package_name?: string | null;
+          stripe_session_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          amount?: number;
+          credits?: number;
+          status?: string;
+          package_name?: string | null;
+          stripe_session_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       sketches: {
         Row: {
           animated_image_url: string | null;
+          content_type: string;
           created_at: string;
+          fal_request_id: string | null;
           id: string;
           is_new: boolean;
           name: string;
@@ -44,10 +79,13 @@ export type Database = {
           status: string;
           updated_at: string;
           user_id: string;
+          video_prompt: string | null;
         };
         Insert: {
           animated_image_url?: string | null;
+          content_type?: string;
           created_at?: string;
+          fal_request_id?: string | null;
           id?: string;
           is_new?: boolean;
           name: string;
@@ -55,10 +93,13 @@ export type Database = {
           status?: string;
           updated_at?: string;
           user_id: string;
+          video_prompt?: string | null;
         };
         Update: {
           animated_image_url?: string | null;
+          content_type?: string;
           created_at?: string;
+          fal_request_id?: string | null;
           id?: string;
           is_new?: boolean;
           name?: string;
@@ -66,8 +107,89 @@ export type Database = {
           status?: string;
           updated_at?: string;
           user_id?: string;
+          video_prompt?: string | null;
         };
         Relationships: [];
+      };
+      stories: {
+        Row: {
+          id: string;
+          user_id: string;
+          sketch_id: string;
+          theme: string;
+          status: string;
+          page_count: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          sketch_id: string;
+          theme: string;
+          status?: string;
+          page_count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          sketch_id?: string;
+          theme?: string;
+          status?: string;
+          page_count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "stories_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stories_sketch_id_fkey";
+            columns: ["sketch_id"];
+            referencedRelation: "sketches";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      story_pages: {
+        Row: {
+          id: string;
+          story_id: string;
+          page_number: number;
+          text: string;
+          illustration_url: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          story_id: string;
+          page_number: number;
+          text: string;
+          illustration_url?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          story_id?: string;
+          page_number?: number;
+          text?: string;
+          illustration_url?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "story_pages_story_id_fkey";
+            columns: ["story_id"];
+            referencedRelation: "stories";
+            referencedColumns: ["id"];
+          }
+        ];
       };
     };
     Views: {
@@ -91,6 +213,11 @@ export type Database = {
     };
   };
 };
+
+export type Story = Database["public"]["Tables"]["stories"]["Row"];
+export type StoryPage = Database["public"]["Tables"]["story_pages"]["Row"];
+export type StoryInsert = Database["public"]["Tables"]["stories"]["Insert"];
+export type StoryPageInsert = Database["public"]["Tables"]["story_pages"]["Insert"];
 
 type DefaultSchema = Database[Extract<keyof Database, "public">];
 
