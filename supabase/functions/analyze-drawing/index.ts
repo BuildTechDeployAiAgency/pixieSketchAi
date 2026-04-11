@@ -18,12 +18,32 @@ const RATE_LIMIT = 10; // 10 requests per minute
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req.headers.get("Origin"));
   const corsResponse = handleCorsRequest(req);
   if (corsResponse) {
     return corsResponse;
   }
 
   try {
+    // Initialize environment variables
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const openAIApiKey = Deno.env.get("OPENAI_API_KEY");
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error("Missing required Supabase environment variables");
+      return new Response(
+        JSON.stringify({
+          error: "Server configuration error",
+          code: "CONFIG_ERROR",
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
     // Verify authentication
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
@@ -50,10 +70,11 @@ serve(async (req) => {
     });
 
     // Verify the user's session
+    const jwt = authHeader.replace("Bearer ", "");
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await supabase.auth.getUser(jwt);
     if (authError || !user) {
       console.error("Invalid authentication:", authError);
       return new Response(
@@ -286,11 +307,12 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error("Error in analyze-drawing function:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return new Response(
       JSON.stringify({
         error: "An unexpected error occurred",
         code: "INTERNAL_ERROR",
-        details: error.message,
+        details: errorMessage,
       }),
       {
         status: 500,

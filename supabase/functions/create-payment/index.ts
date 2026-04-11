@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { getCorsHeaders, handleCorsRequest } from "../_shared/cors.ts";
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req.headers.get("Origin"));
   const corsResponse = handleCorsRequest(req);
   if (corsResponse) {
     return corsResponse;
@@ -11,7 +12,7 @@ serve(async (req) => {
 
   try {
     // Parse request body
-    const { amount, credits } = await req.json();
+    const { amount, credits, success_url, cancel_url } = await req.json();
 
     console.log("Payment request received:", { amount, credits });
 
@@ -35,7 +36,7 @@ serve(async (req) => {
     // Get user from auth header
     const authHeader = req.headers.get("Authorization");
     let user = null;
-    let userEmail = "guest@magicsketch.ai";
+    let userEmail = "guest@pixiesketch.com";
 
     if (authHeader) {
       const token = authHeader.replace("Bearer ", "");
@@ -66,13 +67,13 @@ serve(async (req) => {
     }
 
     // Define product names based on credits
-    let productName = "MagicSketch Credits";
+    let productName = "PixieSketch Credits";
     if (credits === 1) {
-      productName = "Single Magic Transform";
+      productName = "Single Pixie Transform";
     } else if (credits === 10) {
-      productName = "Magic Pack - 10 Transforms";
+      productName = "Pixie Pack - 10 Transforms";
     } else if (credits === 25) {
-      productName = "Super Magic Pack - 25 Transforms";
+      productName = "Super Pixie Pack - 25 Transforms";
     }
 
     // Create checkout session
@@ -85,16 +86,16 @@ serve(async (req) => {
             currency: "usd",
             product_data: {
               name: productName,
-              description: `${credits} transformation${credits > 1 ? "s" : ""} for MagicSketch AI`,
+              description: `${credits} transformation${credits > 1 ? "s" : ""} for PixieSketch`,
             },
-            unit_amount: Math.round(amount * 100), // Convert to cents
+            unit_amount: amount, // already in cents from client
           },
           quantity: 1,
         },
       ],
       mode: "payment",
-      success_url: `${req.headers.get("origin")}/payment-success?session_id={CHECKOUT_SESSION_ID}&credits=${credits}`,
-      cancel_url: `${req.headers.get("origin")}/payment-canceled`,
+      success_url: success_url || `${req.headers.get("origin")}/payment-success?session_id={CHECKOUT_SESSION_ID}&credits=${credits}`,
+      cancel_url: cancel_url || `${req.headers.get("origin")}/payment-canceled`,
       metadata: {
         user_id: user?.id || "guest",
         credits: credits.toString(),
@@ -111,8 +112,9 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error("Payment error:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return new Response(
-      JSON.stringify({ error: error.message || "Payment failed" }),
+      JSON.stringify({ error: errorMessage || "Payment failed" }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500,

@@ -2,15 +2,15 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { getCorsHeaders, handleCorsRequest } from "../_shared/cors.ts";
 
-const ADMIN_EMAIL = "diogo@diogoppedro.com";
+const ADMIN_EMAIL = Deno.env.get("ADMIN_EMAIL");
 
 // Utility function to check if user is admin
-async function isAdmin(supabase: any): Promise<boolean> {
+async function isAdmin(supabase: any, jwt: string): Promise<boolean> {
   try {
     const {
       data: { user },
       error,
-    } = await supabase.auth.getUser();
+    } = await supabase.auth.getUser(jwt);
     if (error || !user) return false;
     return user.email === ADMIN_EMAIL;
   } catch {
@@ -21,6 +21,7 @@ async function isAdmin(supabase: any): Promise<boolean> {
 // Log admin actions for audit trail
 async function logAdminAction(
   supabase: any,
+  jwt: string,
   action: string,
   targetUserId?: string,
   targetEmail?: string,
@@ -29,7 +30,7 @@ async function logAdminAction(
   try {
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await supabase.auth.getUser(jwt);
     if (!user) return;
 
     await supabase.from("admin_audit_log").insert({
@@ -47,6 +48,7 @@ async function logAdminAction(
 serve(async (req) => {
   console.log("Admin operations function invoked:", req.method, req.url);
 
+  const corsHeaders = getCorsHeaders(req.headers.get("Origin"));
   const corsResponse = handleCorsRequest(req);
   if (corsResponse) {
     return corsResponse;
@@ -73,6 +75,7 @@ serve(async (req) => {
     }
 
     const authHeader = req.headers.get("Authorization");
+    const jwt = (authHeader || "").replace("Bearer ", "");
 
     // Create client with user's auth for admin check
     const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
@@ -83,7 +86,7 @@ serve(async (req) => {
     const supabaseService = createClient(supabaseUrl, supabaseServiceKey);
 
     // Verify admin access
-    if (!(await isAdmin(supabaseAuth))) {
+    if (!(await isAdmin(supabaseAuth, jwt))) {
       return new Response(
         JSON.stringify({ error: "Access denied: Admin privileges required" }),
         {
@@ -143,7 +146,7 @@ serve(async (req) => {
         const { error } = await supabaseService.auth.resetPasswordForEmail(
           email,
           {
-            redirectTo: `${new URL(req.url).origin}/reset-password`,
+            redirectTo: `${Deno.env.get("FRONTEND_URL") || "https://pixiesketch.com"}/reset-password`,
           },
         );
 
@@ -156,7 +159,7 @@ serve(async (req) => {
         }
 
         // Log the action
-        await logAdminAction(supabaseAuth, "password_reset", null, email, {
+        await logAdminAction(supabaseAuth, jwt, "password_reset", null, email, {
           email,
         });
 
@@ -218,6 +221,7 @@ serve(async (req) => {
         // Log the action
         await logAdminAction(
           supabaseAuth,
+          jwt,
           "credit_update",
           userId,
           profile.email,
@@ -258,7 +262,7 @@ serve(async (req) => {
         }
 
         // Log the action
-        await logAdminAction(supabaseAuth, "mass_credit_reset", null, null, {
+        await logAdminAction(supabaseAuth, jwt, "mass_credit_reset", null, null, {
           action: "reset_all_credits_to_zero",
         });
 
@@ -380,6 +384,7 @@ serve(async (req) => {
         // Log the action
         await logAdminAction(
           supabaseAuth,
+          jwt,
           "budget_period_created",
           null,
           null,
@@ -439,6 +444,7 @@ serve(async (req) => {
         // Log the action
         await logAdminAction(
           supabaseAuth,
+          jwt,
           "budget_settings_updated",
           null,
           null,
@@ -467,14 +473,17 @@ serve(async (req) => {
         );
     }
   } catch (error) {
-    console.error("Admin operation error:", error);
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
+    // Log full details server-side, but don't expose stack traces to client
+    console.error("Admin operation error:", error);
+    if (error instanceof Error && error.stack) {
+      console.error("Stack trace:", error.stack);
+    }
     return new Response(
       JSON.stringify({
         error: "Internal server error",
         message: errorMessage,
-        details: error instanceof Error ? error.stack : String(error),
       }),
       {
         status: 500,

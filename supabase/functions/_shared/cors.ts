@@ -10,7 +10,7 @@ export function getCorsHeaders(origin: string | null) {
     origin && allowedOrigins.includes(origin) ? origin : null;
 
   return {
-    "Access-Control-Allow-Origin": allowedOrigin || "null",
+    "Access-Control-Allow-Origin": allowedOrigin || "*",
     "Access-Control-Allow-Headers":
       "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",

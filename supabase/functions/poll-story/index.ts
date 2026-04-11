@@ -12,9 +12,10 @@ serve(async (req) => {
   try {
     // Authenticate
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    const parts = authHeader?.split(/\s+/);
+    if (!parts || parts.length !== 2 || parts[0] !== "Bearer" || !parts[1]) {
       return new Response(
-        JSON.stringify({ error: "Missing authorization", success: false }),
+        JSON.stringify({ error: "Missing or invalid authorization header", success: false }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 },
       );
     }
@@ -24,7 +25,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const jwt = authHeader.replace("Bearer ", "");
+    const jwt = parts[1];
     const { data: { user }, error: authError } = await supabase.auth.getUser(jwt);
     if (authError || !user) {
       return new Response(

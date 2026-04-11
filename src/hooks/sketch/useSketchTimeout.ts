@@ -23,7 +23,7 @@ export const useSketchTimeout = ({ setSketches }: UseSketchTimeoutProps) => {
         .select("*")
         .eq("status", "processing")
         .eq("user_id", user.user.id)
-        .lt("created_at", tenMinutesAgo);
+        .lt("updated_at", tenMinutesAgo);
 
       if (error) {
         console.error("Error checking for stuck sketches:", error);
@@ -44,15 +44,14 @@ export const useSketchTimeout = ({ setSketches }: UseSketchTimeoutProps) => {
           }),
         );
 
-        for (const stuckSketch of stuckSketches) {
-          await supabase
-            .from("sketches")
-            .update({
-              status: "failed",
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", stuckSketch.id);
-        }
+        const stuckIds = stuckSketches.map((s) => s.id);
+        await supabase
+          .from("sketches")
+          .update({
+            status: "failed",
+            updated_at: new Date().toISOString(),
+          })
+          .in("id", stuckIds);
 
         toast({
           title: "Processing Timeout",

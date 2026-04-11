@@ -11,6 +11,7 @@ interface CreditCheckResult {
 export const checkUserCredits = async (
   supabase: unknown,
   userId: string,
+  requiredCredits = 1,
 ): Promise<CreditCheckResult> => {
   try {
     const { data: profile, error: profileError } = await (supabase as any)
@@ -35,13 +36,12 @@ export const checkUserCredits = async (
       };
     }
 
-    if (profile.credits <= 0) {
+    if (profile.credits < requiredCredits) {
       return {
         hasCredits: false,
         response: new Response(
           JSON.stringify({
-            error:
-              "Insufficient credits. Please purchase more credits to continue.",
+            error: `Insufficient credits. This requires ${requiredCredits} credit(s).`,
             success: false,
           }),
           {
@@ -75,15 +75,28 @@ export const checkUserCredits = async (
 
 export const checkBudgetLimits = async (
   supabase: unknown,
+  creditsToUse = 1,
 ): Promise<{ allowed: boolean; response?: Response }> => {
   try {
     const { data: budgetCheck, error: budgetError } = await (
       supabase as any
-    ).rpc("check_budget_limit", { credits_to_use: 1 });
+    ).rpc("check_budget_limit", { credits_to_use: creditsToUse });
 
     if (budgetError) {
-      console.error("Budget check failed:", budgetError);
-      return { allowed: true };
+      console.error("Budget check failed (fail-closed):", budgetError);
+      return {
+        allowed: false,
+        response: new Response(
+          JSON.stringify({
+            error: "Unable to verify budget. Please try again later.",
+            success: false,
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 503,
+          },
+        ),
+      };
     }
 
     if (budgetCheck && !budgetCheck.allowed) {
@@ -106,8 +119,20 @@ export const checkBudgetLimits = async (
 
     return { allowed: true };
   } catch (error) {
-    console.error("Budget check exception:", error);
-    return { allowed: true };
+    console.error("Budget check exception (fail-closed):", error);
+    return {
+      allowed: false,
+      response: new Response(
+        JSON.stringify({
+          error: "Unable to verify budget. Please try again later.",
+          success: false,
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 503,
+        },
+      ),
+    };
   }
 };
 
@@ -115,16 +140,24 @@ export const deductUserCredits = async (
   supabase: unknown,
   userId: string,
   currentCredits: number,
+  amount = 1,
 ): Promise<{ success: boolean; error?: unknown }> => {
   try {
-    const { error: deductError } = await (supabase as any)
+    const { data, error: deductError } = await (supabase as any)
       .from("profiles")
-      .update({ credits: currentCredits - 1 })
+      .update({ credits: currentCredits - amount })
       .eq("id", userId)
-      .eq("credits", currentCredits);
+      .eq("credits", currentCredits)
+      .select();
 
     if (deductError) {
       return { success: false, error: deductError };
+    }
+
+    // Optimistic lock check: if no rows were updated, the credits value changed
+    // between read and write (race condition). Return failure so the caller can retry.
+    if (!data || data.length === 0) {
+      return { success: false, error: "Optimistic lock failed: no rows updated (credits changed)" };
     }
 
     return { success: true };
@@ -137,12 +170,13 @@ export const logCreditUsage = async (
   supabase: unknown,
   userId: string,
   sketchId: string,
+  creditsUsed = 1,
 ): Promise<void> => {
   try {
     await (supabase as any).rpc("log_credit_usage", {
       p_user_id: userId,
-      p_credits_used: 1,
-      p_operation_type: "sketch_generation",
+      p_credits_used: creditsUsed,
+      p_operation_type: creditsUsed > 1 ? "video_generation" : "sketch_generation",
       p_sketch_id: sketchId,
     });
   } catch (error) {

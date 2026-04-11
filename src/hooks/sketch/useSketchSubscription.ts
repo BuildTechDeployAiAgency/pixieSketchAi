@@ -7,6 +7,8 @@ import type { Database } from "@/integrations/supabase/types";
 
 type SketchRow = Database["public"]["Tables"]["sketches"]["Row"];
 
+const MAX_RETRIES = 5;
+
 interface UseSketchSubscriptionProps {
   setSketches: React.Dispatch<React.SetStateAction<Sketch[]>>;
   setNewSketchCount: React.Dispatch<React.SetStateAction<number>>;
@@ -21,9 +23,13 @@ export const useSketchSubscription = ({
   currentUserIdRef,
 }: UseSketchSubscriptionProps) => {
   const { toast } = useToast();
-  const channelRef = useRef<unknown>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const channelRef = useRef<any>(null);
   const isSubscribedRef = useRef(false);
   const hookIdRef = useRef<string>(Math.random().toString(36).substr(2, 9));
+  const retryCountRef = useRef(0);
+  const isAuthenticatedRef = useRef(isAuthenticated);
+  isAuthenticatedRef.current = isAuthenticated;
 
   const cleanupSubscription = () => {
     if (channelRef.current && isSubscribedRef.current) {
@@ -79,7 +85,9 @@ export const useSketchSubscription = ({
             if (prev.some((s) => s.id === newSketch.id)) return prev;
             return [newSketch, ...prev];
           });
-          setNewSketchCount((prev) => prev + 1);
+          if (newSketch.is_new) {
+            setNewSketchCount((prev) => prev + 1);
+          }
         } else if (payload.eventType === "UPDATE" && newRecord && oldRecord) {
           const updatedSketch = convertToSketch(newRecord);
 
@@ -143,18 +151,24 @@ export const useSketchSubscription = ({
       if (status === "SUBSCRIBED") {
         isSubscribedRef.current = true;
         channelRef.current = channel;
+        retryCountRef.current = 0;
         console.log("✅ Successfully subscribed to real-time updates");
       } else if (status === "CHANNEL_ERROR") {
         console.error(
           "❌ Real-time subscription error, attempting to reconnect...",
         );
         isSubscribedRef.current = false;
-        setTimeout(() => {
-          if (!isSubscribedRef.current && isAuthenticated) {
-            console.log("🔄 Retrying real-time subscription setup...");
-            setupRealtimeSubscription();
-          }
-        }, 5000);
+        retryCountRef.current += 1;
+        if (retryCountRef.current <= MAX_RETRIES) {
+          setTimeout(() => {
+            if (!isSubscribedRef.current && isAuthenticatedRef.current) {
+              console.log(`🔄 Retrying real-time subscription setup (${retryCountRef.current}/${MAX_RETRIES})...`);
+              setupRealtimeSubscription();
+            }
+          }, 5000);
+        } else {
+          console.error(`❌ Max retries (${MAX_RETRIES}) exceeded, stopping reconnection attempts`);
+        }
       } else if (status === "CLOSED") {
         console.log("🔒 Real-time subscription closed");
         isSubscribedRef.current = false;

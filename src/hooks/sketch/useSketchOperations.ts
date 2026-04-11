@@ -1,20 +1,36 @@
+import * as FileSystem from "expo-file-system/legacy";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { PRESET_PROMPTS } from "@/types/presets";
+import type { PresetOption } from "@/types/presets";
 import type { Sketch } from "./useSketchState";
 import { convertToSketch } from "./useSketchState";
 
+const LABEL_TO_PRESET: Record<string, PresetOption> = Object.fromEntries(
+  (Object.entries(PRESET_PROMPTS) as [PresetOption, { label: string }][]).map(
+    ([key, val]) => [val.label, key],
+  ),
+) as Record<string, PresetOption>;
+
 interface UseSketchOperationsProps {
+  sketches: Sketch[];
   setSketches: React.Dispatch<React.SetStateAction<Sketch[]>>;
   setNewSketchCount: React.Dispatch<React.SetStateAction<number>>;
 }
 
 export const useSketchOperations = ({
+  sketches,
   setSketches,
   setNewSketchCount,
 }: UseSketchOperationsProps) => {
   const { toast } = useToast();
 
-  const createSketch = async (name: string, originalImageUrl: string) => {
+  const createSketch = async (
+    name: string,
+    originalImageUrl: string,
+    contentType: "image" | "video" = "image",
+    videoPrompt: string | null = null,
+  ) => {
     try {
       const { data: user } = await supabase.auth.getUser();
       if (!user.user) {
@@ -26,7 +42,7 @@ export const useSketchOperations = ({
         return null;
       }
 
-      console.log("🎨 Creating new sketch:", { name, originalImageUrl });
+      console.log("🎨 Creating new sketch:", { name, originalImageUrl, contentType });
 
       const { data, error } = await supabase
         .from("sketches")
@@ -36,6 +52,8 @@ export const useSketchOperations = ({
             name,
             original_image_url: originalImageUrl,
             status: "processing",
+            content_type: contentType,
+            ...(videoPrompt && { video_prompt: videoPrompt }),
           },
         ])
         .select()
@@ -66,40 +84,126 @@ export const useSketchOperations = ({
 
   const retrySketch = async (sketchId: string) => {
     try {
-      console.log(`🔄 Retrying sketch processing: ${sketchId}`);
-
-      const { error } = await supabase
-        .from("sketches")
-        .update({
-          status: "processing",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", sketchId);
-
-      if (error) {
-        console.error("❌ Error updating sketch for retry:", error);
+      const sketch = sketches.find((s) => s.id === sketchId);
+      if (!sketch?.original_image_url) {
         toast({
           title: "Retry Failed",
-          description: "Unable to retry sketch processing",
+          description: "Original image not found",
           variant: "destructive",
         });
         return;
       }
 
+      const preset = LABEL_TO_PRESET[sketch.name];
+      if (!preset) {
+        toast({
+          title: "Retry Failed",
+          description: "Could not determine transformation style",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log(`Retrying sketch ${sketchId} with preset: ${preset}`);
+
+      // Update status to processing
+      await supabase
+        .from("sketches")
+        .update({ status: "processing", updated_at: new Date().toISOString() })
+        .eq("id", sketchId);
+
       setSketches((prev) =>
-        prev.map((sketch) =>
-          sketch.id === sketchId
-            ? { ...sketch, status: "processing" as const }
-            : sketch,
+        prev.map((s) =>
+          s.id === sketchId ? { ...s, status: "processing" as const } : s,
         ),
       );
 
       toast({
-        title: "🔄 Retry Started",
+        title: "Retry Started",
         description: "Your sketch is being processed again",
       });
-    } catch (error) {
-      console.error("💥 Error retrying sketch:", error);
+
+      // Download original image and convert to base64
+      const tempFile =
+        FileSystem.documentDirectory + `retry_${Date.now()}.jpg`;
+      const downloadResult = await FileSystem.downloadAsync(
+        sketch.original_image_url,
+        tempFile,
+      );
+      const base64 = await FileSystem.readAsStringAsync(downloadResult.uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      // Re-invoke the Edge Function
+      const isVideo = sketch.content_type === "video";
+      const { data, error: fnError } = await supabase.functions.invoke(
+        "process-sketch",
+        {
+          body: {
+            imageData: base64,
+            preset,
+            sketchId,
+            ...(isVideo && {
+              isVideo: true,
+              videoPromptMode: sketch.video_prompt ? "custom" : "ai_decide",
+              customVideoPrompt: sketch.video_prompt ?? undefined,
+            }),
+          },
+        },
+      );
+
+      if (fnError) {
+        let errorDetail = fnError.message;
+        const errorResponse = (fnError as any).context;
+        if (errorResponse && typeof errorResponse.json === "function") {
+          try {
+            const errorBody = await errorResponse.json();
+            errorDetail =
+              errorBody?.error ?? errorBody?.details ?? fnError.message;
+          } catch {
+            // Response not parseable
+          }
+        }
+        throw new Error(errorDetail);
+      }
+
+      if (data?.animatedImageUrl) {
+        setSketches((prev) =>
+          prev.map((s) =>
+            s.id === sketchId
+              ? {
+                  ...s,
+                  status: "completed" as const,
+                  animated_image_url: data.animatedImageUrl,
+                }
+              : s,
+          ),
+        );
+      }
+
+      toast({
+        title: "Transformation Complete!",
+        description: "Check the Gallery to see your result!",
+      });
+    } catch (error: any) {
+      console.error("Retry failed:", error);
+
+      await supabase
+        .from("sketches")
+        .update({ status: "failed", updated_at: new Date().toISOString() })
+        .eq("id", sketchId);
+
+      setSketches((prev) =>
+        prev.map((s) =>
+          s.id === sketchId ? { ...s, status: "failed" as const } : s,
+        ),
+      );
+
+      toast({
+        title: "Retry Failed",
+        description: error.message ?? "Something went wrong",
+        variant: "destructive",
+      });
     }
   };
 
@@ -160,12 +264,71 @@ export const useSketchOperations = ({
     }
   };
 
+  const deleteSketches = async (ids: string[]) => {
+    if (ids.length === 0) return;
+
+    try {
+      const { error } = await supabase
+        .from("sketches")
+        .delete()
+        .in("id", ids);
+
+      if (error) {
+        console.error("Error bulk-deleting sketches:", error);
+        toast({
+          title: "Error",
+          description: "Failed to delete sketches",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const idSet = new Set(ids);
+      let deletedSketches: Sketch[] = [];
+      setSketches((prev) => {
+        deletedSketches = prev.filter((s) => idSet.has(s.id));
+        return prev.filter((s) => !idSet.has(s.id));
+      });
+
+      const filesToDelete: string[] = [];
+      for (const sketch of deletedSketches) {
+        if (sketch.original_image_url) {
+          const p = sketch.original_image_url.split("/").pop();
+          if (p) filesToDelete.push(p);
+        }
+        if (sketch.animated_image_url) {
+          const p = sketch.animated_image_url.split("/").pop();
+          if (p) filesToDelete.push(p);
+        }
+      }
+
+      if (filesToDelete.length > 0) {
+        const { error: storageError } = await supabase.storage
+          .from("sketches")
+          .remove(filesToDelete);
+        if (storageError) {
+          console.error("Error deleting storage files:", storageError);
+        }
+      }
+
+      const newCount = deletedSketches.filter((s) => s.is_new).length;
+      if (newCount > 0) {
+        setNewSketchCount((prev) => Math.max(0, prev - newCount));
+      }
+
+      toast({
+        title: "Sketches Deleted",
+        description: `Removed ${ids.length} sketch${ids.length === 1 ? "" : "es"}`,
+      });
+    } catch (error) {
+      console.error("Error bulk-deleting sketches:", error);
+    }
+  };
+
   const deleteSketch = async (id: string) => {
     try {
-      const sketchToDelete = setSketches((prev) => {
-        const sketch = prev.find((s) => s.id === id);
-        return prev;
-      });
+      // Capture the sketch BEFORE removing it from state
+      const sketchToDelete_actual = sketches.find((s) => s.id === id);
 
       const { error } = await supabase.from("sketches").delete().eq("id", id);
 
@@ -179,13 +342,8 @@ export const useSketchOperations = ({
         return;
       }
 
-      // Get the sketch that was deleted to clean up files
-      let sketchToDelete_actual: Sketch | undefined;
-      setSketches((prev) => {
-        sketchToDelete_actual = prev.find((s) => s.id === id);
-        const filtered = prev.filter((sketch) => sketch.id !== id);
-        return filtered;
-      });
+      // Remove from local state
+      setSketches((prev) => prev.filter((sketch) => sketch.id !== id));
 
       if (sketchToDelete_actual) {
         const filesToDelete = [];
@@ -234,5 +392,6 @@ export const useSketchOperations = ({
     updateSketchStatus,
     markSketchAsViewed,
     deleteSketch,
+    deleteSketches,
   };
 };

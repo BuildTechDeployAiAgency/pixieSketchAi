@@ -125,6 +125,8 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       logWithContext("error", "No authorization header provided");
+      const origin = req.headers.get("Origin");
+      const corsHeaders = getCorsHeaders(origin);
       return new Response(
         JSON.stringify({
           error: "Authentication required",
@@ -136,6 +138,10 @@ serve(async (req) => {
         },
       );
     }
+
+    // Derive CORS headers once for all responses in this request
+    const origin = req.headers.get("Origin");
+    const corsHeaders = getCorsHeaders(origin);
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -374,8 +380,17 @@ serve(async (req) => {
       );
 
       if (budgetError) {
-        logWithContext("error", "Budget check failed", budgetError);
-        // Continue processing if budget check fails (don't block users for system issues)
+        logWithContext("error", "Budget check failed — blocking request (fail-closed)", budgetError);
+        return new Response(
+          JSON.stringify({
+            error: "Unable to verify budget. Please try again later.",
+            success: false,
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 503,
+          },
+        );
       } else if (budgetCheck && !budgetCheck.allowed) {
         logWithContext("error", "Budget limit exceeded", {
           budgetCheck,
@@ -411,8 +426,17 @@ serve(async (req) => {
         }
       }
     } catch (budgetCheckError) {
-      logWithContext("error", "Budget check exception", budgetCheckError);
-      // Continue processing if budget check fails (don't block users for system issues)
+      logWithContext("error", "Budget check exception — blocking request (fail-closed)", budgetCheckError);
+      return new Response(
+        JSON.stringify({
+          error: "Unable to verify budget. Please try again later.",
+          success: false,
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 503,
+        },
+      );
     }
 
     logWithContext("info", "User has sufficient credits", {
@@ -498,6 +522,7 @@ Your response should be a detailed visual description suitable for image generat
         presetPrompt,
         sketchId,
         supabase,
+        req,
       );
     }
 
@@ -521,6 +546,7 @@ Your response should be a detailed visual description suitable for image generat
         presetPrompt,
         sketchId,
         supabase,
+        req,
       );
     }
 
@@ -636,54 +662,99 @@ Your response should be a detailed visual description suitable for image generat
       "info",
       "💳 Deducting credit after successful processing...",
     );
-    const { error: deductError } = await supabase
+    let creditDeducted = false;
+    // First attempt: optimistic lock with originally-read credits
+    const { data: deductData, error: deductError } = await supabase
       .from("profiles")
       .update({ credits: profile.credits - 1 })
       .eq("id", user.id)
-      .eq("credits", profile.credits); // Optimistic locking to prevent race conditions
+      .eq("credits", profile.credits)
+      .select();
 
-    if (deductError) {
+    if (deductError || !deductData || deductData.length === 0) {
       logWithContext(
-        "error",
-        "Failed to deduct credit after processing",
+        "warn",
+        "First credit deduction attempt failed (optimistic lock miss), retrying with fresh read...",
         deductError,
       );
-      // Note: Processing was successful, so we still return success but log the credit error
+      // Retry: re-read current credits and attempt again
+      const { data: freshProfile } = await supabase
+        .from("profiles")
+        .select("credits")
+        .eq("id", user.id)
+        .single();
+
+      if (freshProfile && freshProfile.credits > 0) {
+        const { data: retryData, error: retryError } = await supabase
+          .from("profiles")
+          .update({ credits: freshProfile.credits - 1 })
+          .eq("id", user.id)
+          .eq("credits", freshProfile.credits)
+          .select();
+
+        if (!retryError && retryData && retryData.length > 0) {
+          creditDeducted = true;
+          logWithContext("info", "Credit deducted on retry", {
+            userId: user.id,
+            previousCredits: freshProfile.credits,
+            newCredits: freshProfile.credits - 1,
+          });
+        } else {
+          logWithContext("error", "Credit deduction retry also failed", retryError);
+        }
+      } else {
+        logWithContext("error", "Cannot retry credit deduction: no profile or zero credits");
+      }
     } else {
+      creditDeducted = true;
       logWithContext("info", "Credit deducted successfully after processing", {
         userId: user.id,
         previousCredits: profile.credits,
         newCredits: profile.credits - 1,
       });
+    }
 
-      // Log credit usage for budget tracking
-      try {
-        const { error: budgetLogError } = await supabase.rpc(
-          "log_credit_usage",
-          {
-            p_user_id: user.id,
-            p_credits_used: 1,
-            p_operation_type: "sketch_generation",
-            p_sketch_id: sketchId,
-          },
+    if (!creditDeducted) {
+      logWithContext("error", "Credit deduction failed after all attempts — returning error");
+      return new Response(
+        JSON.stringify({
+          error: "Failed to deduct credit. Please try again.",
+          success: false,
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 500,
+        },
+      );
+    }
+
+    // Log credit usage for budget tracking
+    try {
+      const { error: budgetLogError } = await supabase.rpc(
+        "log_credit_usage",
+        {
+          p_user_id: user.id,
+          p_credits_used: 1,
+          p_operation_type: "sketch_generation",
+          p_sketch_id: sketchId,
+        },
+      );
+
+      if (budgetLogError) {
+        logWithContext(
+          "error",
+          "Failed to log credit usage for budget tracking",
+          budgetLogError,
         );
-
-        if (budgetLogError) {
-          logWithContext(
-            "error",
-            "Failed to log credit usage for budget tracking",
-            budgetLogError,
-          );
-        } else {
-          logWithContext("info", "Credit usage logged for budget tracking", {
-            userId: user.id,
-            sketchId: sketchId,
-            creditsUsed: 1,
-          });
-        }
-      } catch (budgetLogException) {
-        logWithContext("error", "Budget logging exception", budgetLogException);
+      } else {
+        logWithContext("info", "Credit usage logged for budget tracking", {
+          userId: user.id,
+          sketchId: sketchId,
+          creditsUsed: 1,
+        });
       }
+    } catch (budgetLogException) {
+      logWithContext("error", "Budget logging exception", budgetLogException);
     }
 
     const processingTime = Date.now() - requestStartTime;
@@ -747,7 +818,7 @@ Your response should be a detailed visual description suitable for image generat
         processingTimeMs: processingTime,
       }),
       {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCorsHeaders(req.headers.get("Origin")), "Content-Type": "application/json" },
         status: 500,
       },
     );
@@ -760,6 +831,7 @@ async function fallbackImageGeneration(
   prompt: string,
   sketchId: string,
   supabase: any,
+  req: Request,
 ) {
   logWithContext("info", "🔄 Using fallback image generation");
 
@@ -833,9 +905,10 @@ async function fallbackImageGeneration(
       );
       const authHeader = req.headers.get("Authorization");
       if (authHeader) {
+        const jwt = authHeader.replace("Bearer ", "");
         const {
           data: { user },
-        } = await supabase.auth.getUser();
+        } = await supabase.auth.getUser(jwt);
         if (user) {
           const { data: currentProfile } = await supabase
             .from("profiles")
@@ -861,6 +934,7 @@ async function fallbackImageGeneration(
       logWithContext("error", "Fallback generation failed - no image URL");
     }
 
+    const fallbackCorsHeaders = getCorsHeaders(req.headers.get("Origin"));
     return new Response(
       JSON.stringify({
         animatedImageUrl,
@@ -869,8 +943,8 @@ async function fallbackImageGeneration(
         usedFallback: true,
       }),
       {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
+        headers: { ...fallbackCorsHeaders, "Content-Type": "application/json" },
+        status: animatedImageUrl ? 200 : 500,
       },
     );
   } catch (error) {
@@ -884,7 +958,7 @@ async function fallbackImageGeneration(
         success: false,
       }),
       {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCorsHeaders(req.headers.get("Origin")), "Content-Type": "application/json" },
         status: 500,
       },
     );

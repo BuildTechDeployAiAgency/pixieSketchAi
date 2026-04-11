@@ -23,9 +23,18 @@ export const useSketchFetcher = ({
 }: UseSketchFetcherProps) => {
   const { toast } = useToast();
   const retryCountRef = useRef(0);
+  const fetchInProgressRef = useRef(false);
+  const retryPendingRef = useRef(false);
   const maxRetries = 3;
 
   const fetchSketches = async (retryCount = 0) => {
+    if (fetchInProgressRef.current && retryCount === 0) {
+      console.log("⏳ Fetch already in progress, skipping duplicate call");
+      return;
+    }
+
+    fetchInProgressRef.current = true;
+
     try {
       console.log(
         `🔄 Fetching sketches (attempt ${retryCount + 1}/${maxRetries + 1})`,
@@ -48,7 +57,7 @@ export const useSketchFetcher = ({
       const { data, error } = await supabase
         .from("sketches")
         .select(
-          "id, user_id, name, original_image_url, animated_image_url, status, is_new, created_at, updated_at",
+          "id, user_id, name, original_image_url, animated_image_url, content_type, video_prompt, fal_request_id, status, is_new, created_at, updated_at",
         )
         .eq("user_id", user.user.id)
         .order("created_at", { ascending: false })
@@ -58,14 +67,17 @@ export const useSketchFetcher = ({
         console.error("❌ Database error fetching sketches:", error);
 
         if (error.code === "57014" && retryCount < maxRetries) {
+          const delaySec = (retryCount + 1) * 2;
           console.log(
-            `⏰ Query timeout, retrying in ${(retryCount + 1) * 2} seconds...`,
+            `⏰ Query timeout, retrying in ${delaySec} seconds...`,
           );
+          retryPendingRef.current = true;
           setTimeout(
             () => {
+              retryPendingRef.current = false;
               fetchSketches(retryCount + 1);
             },
-            (retryCount + 1) * 2000,
+            delaySec * 1000,
           );
           return;
         }
@@ -101,7 +113,10 @@ export const useSketchFetcher = ({
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      fetchInProgressRef.current = false;
+      if (!retryPendingRef.current) {
+        setIsLoading(false);
+      }
     }
   };
 

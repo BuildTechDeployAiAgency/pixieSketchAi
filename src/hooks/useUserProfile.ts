@@ -144,7 +144,7 @@ export const useUserProfile = () => {
               filter: `id=eq.${user.id}`,
             },
             (payload) => {
-              console.log("Profile updated via realtime:", payload.new);
+              console.log("Profile updated via realtime:", { id: (payload.new as any).id, credits: (payload.new as any).credits });
               setProfile(payload.new as UserProfile);
             },
           )

@@ -19,7 +19,7 @@ export const useDrawingAnalysis = () => {
   const { toast } = useToast();
 
   const parseErrorMessage = (error: any): string => {
-    console.log("Full error object:", error);
+    if (__DEV__) console.log("Full error object:", error);
 
     // Check for credit-related errors
     if (
@@ -76,8 +76,10 @@ export const useDrawingAnalysis = () => {
         customPrompt ||
         "Analyze this children's drawing and describe how it could be transformed into a magical drawing. Focus on the characters, colors, and potential magical elements that would bring it to life.";
 
-      console.log("Starting analysis with imageUrl:", imageUrl);
-      console.log("Prompt:", prompt);
+      if (__DEV__) {
+        console.log("Starting analysis with imageUrl:", imageUrl);
+        console.log("Prompt:", prompt);
+      }
 
       const { data, error } = await supabase.functions.invoke(
         "analyze-drawing",
@@ -89,7 +91,7 @@ export const useDrawingAnalysis = () => {
         },
       );
 
-      console.log("Supabase function response:", { data, error });
+      if (__DEV__) console.log("Supabase function response:", { data, error });
 
       if (error) {
         console.error("Analysis error details:", error);

@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { getCorsHeaders, handleCorsRequest } from "../_shared/cors.ts";
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req.headers.get("Origin"));
   const corsResponse = handleCorsRequest(req);
   if (corsResponse) {
     return corsResponse;
@@ -74,7 +75,7 @@ serve(async (req) => {
       throw new Error(`Unsupported email service: ${emailService}`);
     }
 
-    if (!emailResponse.ok) {
+    if (!emailResponse.ok && emailResponse.status !== 202) {
       const errorText = await emailResponse.text();
       console.error(
         `Email service error (${emailResponse.status}):`,
@@ -83,7 +84,16 @@ serve(async (req) => {
       throw new Error(`Email service error: ${emailResponse.status}`);
     }
 
-    const result = await emailResponse.json();
+    // SendGrid returns 202 with empty body; only parse JSON if there's content
+    let result: { id?: string } = {};
+    const contentType = emailResponse.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      const text = await emailResponse.text();
+      if (text) {
+        result = JSON.parse(text);
+      }
+    }
+
     console.log("Email sent successfully:", {
       to,
       subject,
@@ -103,9 +113,10 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error("Email sending error:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return new Response(
       JSON.stringify({
-        error: error.message || "Failed to send email",
+        error: errorMessage || "Failed to send email",
         success: false,
       }),
       {

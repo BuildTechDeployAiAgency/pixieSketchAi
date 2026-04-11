@@ -175,7 +175,7 @@ export async function downloadAndUploadIllustration(
     // Strip data URI prefix: e.g. "data:image/png;base64,<base64>"
     const base64Data = imageBase64OrUrl.split(",")[1];
     const uint8 = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
-    imageBytes = uint8.buffer;
+    imageBytes = uint8.buffer.slice(uint8.byteOffset, uint8.byteOffset + uint8.byteLength);
   } else if (
     imageBase64OrUrl.startsWith("http://") ||
     imageBase64OrUrl.startsWith("https://")
@@ -193,7 +193,7 @@ export async function downloadAndUploadIllustration(
     const uint8 = Uint8Array.from(atob(imageBase64OrUrl), (c) =>
       c.charCodeAt(0),
     );
-    imageBytes = uint8.buffer;
+    imageBytes = uint8.buffer.slice(uint8.byteOffset, uint8.byteOffset + uint8.byteLength);
   }
 
   const { data: storageData, error: storageError } = await (supabase as any)
@@ -214,6 +214,10 @@ export async function downloadAndUploadIllustration(
     .storage
     .from("sketches")
     .getPublicUrl(storageData.path);
+
+  if (!urlData?.publicUrl) {
+    throw new Error("Failed to get public URL for uploaded illustration");
+  }
 
   return urlData.publicUrl as string;
 }

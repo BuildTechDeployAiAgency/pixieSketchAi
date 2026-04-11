@@ -17,7 +17,8 @@ CREATE TABLE IF NOT EXISTS public.story_pages (
   page_number INTEGER NOT NULL CHECK (page_number BETWEEN 1 AND 8),
   text TEXT NOT NULL,
   illustration_url TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (story_id, page_number)
 );
 
 -- Indexes
@@ -41,7 +42,8 @@ CREATE POLICY "Users can insert their own stories"
 
 CREATE POLICY "Users can update their own stories"
   ON public.stories FOR UPDATE
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Users can delete their own stories"
   ON public.stories FOR DELETE
@@ -58,10 +60,29 @@ CREATE POLICY "Users can view pages of their own stories"
     )
   );
 
-CREATE POLICY "Service role can insert story pages"
+CREATE POLICY "Users can insert pages for their own stories"
   ON public.story_pages FOR INSERT
-  WITH CHECK (true);  -- edge functions use service role key
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.stories
+      WHERE stories.id = story_id
+        AND stories.user_id = auth.uid()
+    )
+  );
 
-CREATE POLICY "Service role can update story pages"
+CREATE POLICY "Users can update pages for their own stories"
   ON public.story_pages FOR UPDATE
-  USING (true);  -- edge functions use service role key
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.stories
+      WHERE stories.id = story_id
+        AND stories.user_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.stories
+      WHERE stories.id = story_id
+        AND stories.user_id = auth.uid()
+    )
+  );
