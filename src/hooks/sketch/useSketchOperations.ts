@@ -29,6 +29,7 @@ export const useSketchOperations = ({
     originalImageUrl: string,
     contentType: "image" | "video" = "image",
     videoPrompt: string | null = null,
+    preset: PresetOption | null = null,
   ) => {
     try {
       const { data: user } = await supabase.auth.getUser();
@@ -52,6 +53,7 @@ export const useSketchOperations = ({
             original_image_url: originalImageUrl,
             status: "processing",
             content_type: contentType,
+            ...(preset && { preset }),
             ...(videoPrompt && { video_prompt: videoPrompt }),
           },
         ])
@@ -93,7 +95,8 @@ export const useSketchOperations = ({
         return;
       }
 
-      const preset = LABEL_TO_PRESET[sketch.name];
+      const preset =
+        (sketch.preset as PresetOption | null) ?? LABEL_TO_PRESET[sketch.name];
       if (!preset) {
         toast({
           title: "Retry Failed",

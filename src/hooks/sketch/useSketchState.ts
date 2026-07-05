@@ -9,6 +9,7 @@ export interface Sketch {
   name: string;
   original_image_url: string | null;
   animated_image_url: string | null;
+  preset: string | null;
   status: "processing" | "completed" | "failed";
   is_new: boolean;
   created_at: string;

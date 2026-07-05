@@ -42,8 +42,10 @@ export const useSketchFetcher = ({
       setIsLoading(true);
       setError(null);
 
-      const { data: user } = await supabase.auth.getUser();
-      if (!user.user) {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.user) {
         console.log("❌ No authenticated user found");
         setSketches([]);
         setNewSketchCount(0);
@@ -51,15 +53,15 @@ export const useSketchFetcher = ({
         return;
       }
 
-      console.log("✅ Authenticated user found:", user.user.id);
-      currentUserIdRef.current = user.user.id;
+      console.log("✅ Authenticated user found:", session.user.id);
+      currentUserIdRef.current = session.user.id;
 
       const { data, error } = await supabase
         .from("sketches")
         .select(
-          "id, user_id, name, original_image_url, animated_image_url, content_type, video_prompt, fal_request_id, status, is_new, created_at, updated_at",
+          "id, user_id, name, original_image_url, animated_image_url, content_type, video_prompt, fal_request_id, preset, status, is_new, created_at, updated_at",
         )
-        .eq("user_id", user.user.id)
+        .eq("user_id", session.user.id)
         .order("created_at", { ascending: false })
         .limit(50);
 

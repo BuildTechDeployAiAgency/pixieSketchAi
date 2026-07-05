@@ -38,11 +38,14 @@ const Index = () => {
   const {
     profile,
     isLoading: isProfileLoading,
-    updateCredits,
     refreshProfile,
   } = useUserProfile();
   const sketchesData = useSketches();
   const { toast } = useToast();
+
+  const processingCount = sketchesData.sketches.filter(
+    (sketch) => sketch.status === "processing",
+  ).length;
 
   // Check authentication status on mount and listen for changes
   useEffect(() => {
@@ -83,21 +86,6 @@ const Index = () => {
       subscription.unsubscribe();
     };
   }, []);
-
-  // Cache authentication status
-  useEffect(() => {
-    if (!isAuthLoading) {
-      localStorage.setItem("isAuthenticated", isAuthenticated.toString());
-    }
-  }, [isAuthenticated, isAuthLoading]);
-
-  // Load cached auth status
-  useEffect(() => {
-    const cachedAuth = localStorage.getItem("isAuthenticated");
-    if (cachedAuth && !isAuthLoading) {
-      setIsAuthenticated(cachedAuth === "true");
-    }
-  }, [isAuthLoading]);
 
   // Log when sketch data changes for debugging
   useEffect(() => {
@@ -312,9 +300,10 @@ const Index = () => {
               <div className="space-y-8">
                 <FileUpload
                   credits={profile?.credits || 0}
-                  setCredits={updateCredits}
                   isAuthenticated={isAuthenticated}
                   onCreditUpdate={refreshProfile}
+                  createSketch={sketchesData.createSketch}
+                  updateSketchStatus={sketchesData.updateSketchStatus}
                 />
 
                 {/* How It Works and Pricing sections for authenticated users */}
@@ -446,10 +435,7 @@ const Index = () => {
                 </Card>
               </div>
             ) : (
-              <SketchGallery
-                key={`gallery-${sketchesData.sketches.length}-${sketchesData.newSketchCount}`}
-                sketchesData={sketchesData}
-              />
+              <SketchGallery sketchesData={sketchesData} />
             )
           ) : (
             // Show informational sections only for non-authenticated users
@@ -582,6 +568,24 @@ const Index = () => {
           )}
         </div>
       </main>
+
+      {/* Floating processing indicator — persists across tab navigation */}
+      {isAuthenticated && processingCount > 0 && (
+        <button
+          onClick={() => setActiveTab("gallery")}
+          className="fixed bottom-6 right-6 z-50 flex items-center space-x-3 bg-white border border-purple-200 shadow-xl rounded-full pl-3 pr-5 py-3 hover:shadow-2xl hover:border-purple-400 transition-all"
+        >
+          <span className="relative flex h-8 w-8 items-center justify-center">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-purple-300 opacity-60"></span>
+            <Sparkles className="relative h-5 w-5 text-purple-600 animate-pulse" />
+          </span>
+          <span className="text-sm font-medium text-purple-800">
+            {processingCount === 1
+              ? "1 drawing transforming…"
+              : `${processingCount} drawings transforming…`}
+          </span>
+        </button>
+      )}
 
       {/* Footer */}
       <footer className="bg-white border-t mt-16">

@@ -17,21 +17,33 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { PresetButtonGroup } from "./PresetButtonGroup";
-import { useSketches } from "@/hooks/useSketches";
+import type { Sketch } from "@/hooks/sketch/useSketchState";
 import type { PresetOption } from "@/types/presets";
 
 interface FileUploadProps {
   credits: number;
-  setCredits: (credits: number) => void;
   isAuthenticated: boolean;
   onCreditUpdate?: () => void;
+  createSketch: (
+    name: string,
+    originalImageUrl: string,
+    contentType?: "image" | "video",
+    videoPrompt?: string | null,
+    preset?: PresetOption | null,
+  ) => Promise<Sketch | null>;
+  updateSketchStatus: (
+    id: string,
+    status: "processing" | "completed" | "failed",
+    animatedImageUrl?: string,
+  ) => Promise<void>;
 }
 
 export const FileUpload = ({
   credits,
-  setCredits,
   isAuthenticated,
   onCreditUpdate,
+  createSketch,
+  updateSketchStatus,
 }: FileUploadProps) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -40,7 +52,6 @@ export const FileUpload = ({
     null,
   );
   const { toast } = useToast();
-  const { createSketch, updateSketchStatus } = useSketches();
 
   // Removed diagnostic import since bucket is now created
 
@@ -156,7 +167,7 @@ export const FileUpload = ({
       const sketchName = `Drawing ${new Date().toLocaleDateString()}, ${new Date().toLocaleTimeString()}`;
       console.log("💾 Creating sketch record:", sketchName);
 
-      const sketch = await createSketch(sketchName, publicUrl);
+      const sketch = await createSketch(sketchName, publicUrl, "image", null, preset);
 
       if (!sketch) {
         throw new Error("Failed to create sketch record");
@@ -195,40 +206,53 @@ export const FileUpload = ({
         processError,
       });
 
-      if (processError) {
-        console.error("❌ Process function error:", processError);
-        await updateSketchStatus(sketch.id, "failed");
-        throw new Error(
-          `Processing failed: ${processError.message || "Unknown error"}`,
-        );
-      }
+      if (processError || !processData?.success) {
+        console.error("❌ Process function error:", processError ?? processData);
+        // The edge function may have completed server-side even if this
+        // client lost the response — never clobber a completed row.
+        const { data: currentRow } = await supabase
+          .from("sketches")
+          .select("status, animated_image_url")
+          .eq("id", sketch.id)
+          .single();
 
-      if (!processData || !processData.success) {
-        console.error("❌ Process function returned failure:", processData);
-        await updateSketchStatus(sketch.id, "failed");
-        throw new Error(
-          `Processing failed: ${processData?.error || "Unknown error"}`,
-        );
+        if (currentRow?.status === "completed") {
+          console.log("✅ Server completed despite lost response");
+        } else if (currentRow?.status === "processing") {
+          // Leave it processing — realtime/timeout checker will resolve it.
+          toast({
+            title: "Still Processing",
+            description:
+              "Your drawing is taking a little longer. Track it in My Sketches — it will appear there when ready.",
+          });
+          setSelectedFile(null);
+          setPreviewUrl(null);
+          return;
+        } else {
+          throw new Error(
+            `Processing failed: ${processError?.message || processData?.error || "Unknown error"}`,
+          );
+        }
       }
 
       console.log("✅ Processing successful, updating database...");
 
-      // Update sketch with animated result
-      await updateSketchStatus(
-        sketch.id,
-        "completed",
-        processData.animatedImageUrl,
-      );
+      // The edge function already marked the sketch completed server-side;
+      // only patch the row if the client response carried a fresher URL.
+      if (processData?.animatedImageUrl) {
+        await updateSketchStatus(
+          sketch.id,
+          "completed",
+          processData.animatedImageUrl,
+        );
+      }
 
       console.log("🎉 Transformation completed successfully!");
 
-      // Credits are now deducted server-side, trigger credit balance refresh
+      // Credits are deducted server-side; refresh the balance display only.
       if (onCreditUpdate) {
         onCreditUpdate();
       }
-
-      // Also update local state for immediate feedback
-      setCredits(Math.max(0, credits - 1));
 
       toast({
         title: "🎉 Transformation Complete!",

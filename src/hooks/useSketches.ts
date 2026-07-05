@@ -80,12 +80,17 @@ export const useSketches = () => {
 
       if (session) {
         currentUserIdRef.current = session.user.id;
-        fetchSketches().then(() => {
-          startTimeoutChecker();
-          setTimeout(() => {
-            setupRealtimeSubscription();
-          }, 150);
-        });
+        // Defer out of the auth callback: awaiting supabase calls inside
+        // onAuthStateChange deadlocks the client's internal auth lock,
+        // leaving isLoading stuck true forever.
+        setTimeout(() => {
+          fetchSketches().then(() => {
+            startTimeoutChecker();
+            setTimeout(() => {
+              setupRealtimeSubscription();
+            }, 150);
+          });
+        }, 0);
       } else {
         setSketches([]);
         setNewSketchCount(0);
