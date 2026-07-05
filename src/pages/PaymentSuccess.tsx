@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { CheckCircle, ArrowLeft, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,8 +19,16 @@ const PaymentSuccess = () => {
 
   const sessionId = searchParams.get("session_id");
   const credits = searchParams.get("credits");
+  const verifiedSessionRef = useRef<string | null>(null);
 
   useEffect(() => {
+    // Guard: verify each session exactly once, even if hook identities in the
+    // dependency array change between renders.
+    if (verifiedSessionRef.current === sessionId) {
+      return;
+    }
+    verifiedSessionRef.current = sessionId;
+
     const verifyPayment = async () => {
       if (!sessionId) {
         toast({

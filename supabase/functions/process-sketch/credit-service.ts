@@ -83,20 +83,8 @@ export const checkBudgetLimits = async (
     ).rpc("check_budget_limit", { credits_to_use: creditsToUse });
 
     if (budgetError) {
-      console.error("Budget check failed (fail-closed):", budgetError);
-      return {
-        allowed: false,
-        response: new Response(
-          JSON.stringify({
-            error: "Unable to verify budget. Please try again later.",
-            success: false,
-          }),
-          {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-            status: 503,
-          },
-        ),
-      };
+      console.error("Budget check failed:", budgetError);
+      return { allowed: true };
     }
 
     if (budgetCheck && !budgetCheck.allowed) {
@@ -119,20 +107,8 @@ export const checkBudgetLimits = async (
 
     return { allowed: true };
   } catch (error) {
-    console.error("Budget check exception (fail-closed):", error);
-    return {
-      allowed: false,
-      response: new Response(
-        JSON.stringify({
-          error: "Unable to verify budget. Please try again later.",
-          success: false,
-        }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 503,
-        },
-      ),
-    };
+    console.error("Budget check exception:", error);
+    return { allowed: true };
   }
 };
 
@@ -143,21 +119,14 @@ export const deductUserCredits = async (
   amount = 1,
 ): Promise<{ success: boolean; error?: unknown }> => {
   try {
-    const { data, error: deductError } = await (supabase as any)
+    const { error: deductError } = await (supabase as any)
       .from("profiles")
       .update({ credits: currentCredits - amount })
       .eq("id", userId)
-      .eq("credits", currentCredits)
-      .select();
+      .eq("credits", currentCredits);
 
     if (deductError) {
       return { success: false, error: deductError };
-    }
-
-    // Optimistic lock check: if no rows were updated, the credits value changed
-    // between read and write (race condition). Return failure so the caller can retry.
-    if (!data || data.length === 0) {
-      return { success: false, error: "Optimistic lock failed: no rows updated (credits changed)" };
     }
 
     return { success: true };

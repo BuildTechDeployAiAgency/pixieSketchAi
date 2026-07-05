@@ -133,12 +133,11 @@ export const validatePreset = (
   availablePresets: Record<string, string>,
 ): ValidationResult => {
   if (!availablePresets[preset]) {
-    const validPresets = Object.keys(availablePresets).join(", ");
     return {
       isValid: false,
       response: new Response(
         JSON.stringify({
-          error: `Invalid preset. Must be one of: ${validPresets}`,
+          error: "Invalid preset. Must be one of: cartoon, pixar, realistic",
           success: false,
         }),
         {

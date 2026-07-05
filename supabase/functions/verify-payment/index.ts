@@ -67,16 +67,54 @@ serve(async (req) => {
       );
     }
 
-    // Only update credits for authenticated users
-    if (userId && userId !== "guest") {
-      // Create Supabase service client to update credits
-      const supabaseService = createClient(
-        Deno.env.get("SUPABASE_URL") ?? "",
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-        { auth: { persistSession: false } },
-      );
+    const supabaseService = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      { auth: { persistSession: false } },
+    );
 
-      // Get current user profile
+    // Record the payment exactly once. stripe_session_id is UNIQUE, so a
+    // duplicate insert is ignored — credits are only granted on first insert.
+    // This makes verification idempotent and safe against the webhook racing us.
+    const paymentRecord = {
+      stripe_session_id: session.id,
+      stripe_payment_intent_id:
+        typeof session.payment_intent === "string"
+          ? session.payment_intent
+          : session.payment_intent?.id || null,
+      user_id: userId && userId !== "guest" ? userId : null,
+      customer_email: session.customer_details?.email || "unknown@example.com",
+      amount: session.amount_total || 0,
+      currency: session.currency || "usd",
+      credits_purchased: credits,
+      package_name: packageName,
+      payment_status: "completed",
+      created_at: new Date().toISOString(),
+    };
+
+    const { data: insertedRows, error: insertError } = await supabaseService
+      .from("payment_history")
+      .upsert(paymentRecord, {
+        onConflict: "stripe_session_id",
+        ignoreDuplicates: true,
+      })
+      .select("id");
+
+    if (insertError) {
+      console.error("Error recording payment:", insertError);
+      return new Response(
+        JSON.stringify({ error: "Failed to record payment" }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 500,
+        },
+      );
+    }
+
+    const isFirstVerification = (insertedRows?.length ?? 0) > 0;
+
+    // Only update credits for authenticated users, and only once per session
+    if (userId && userId !== "guest") {
       const { data: profile, error: fetchError } = await supabaseService
         .from("profiles")
         .select("credits")
@@ -94,39 +132,48 @@ serve(async (req) => {
         );
       }
 
-      const newCredits = (profile?.credits || 0) + credits;
+      let newCredits = profile?.credits || 0;
 
-      // Update user credits
-      const { error: updateError } = await supabaseService
-        .from("profiles")
-        .update({
-          credits: newCredits,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", userId);
+      if (isFirstVerification) {
+        newCredits += credits;
 
-      if (updateError) {
-        console.error("Error updating credits:", updateError);
-        return new Response(
-          JSON.stringify({ error: "Failed to update credits" }),
-          {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-            status: 500,
-          },
-        );
+        const { error: updateError } = await supabaseService
+          .from("profiles")
+          .update({
+            credits: newCredits,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", userId);
+
+        if (updateError) {
+          console.error("Error updating credits:", updateError);
+          return new Response(
+            JSON.stringify({ error: "Failed to update credits" }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 500,
+            },
+          );
+        }
+
+        console.log("Credits updated successfully:", {
+          userId,
+          oldCredits: profile?.credits,
+          newCredits,
+        });
+      } else {
+        console.log("Session already processed, skipping credit grant:", {
+          sessionId,
+          userId,
+        });
       }
-
-      console.log("Credits updated successfully:", {
-        userId,
-        oldCredits: profile?.credits,
-        newCredits,
-      });
 
       return new Response(
         JSON.stringify({
           success: true,
           credits: newCredits,
-          addedCredits: credits,
+          addedCredits: isFirstVerification ? credits : 0,
+          alreadyProcessed: !isFirstVerification,
           purchaseDetails,
         }),
         {
@@ -142,6 +189,7 @@ serve(async (req) => {
         success: true,
         message: "Payment verified (guest user)",
         addedCredits: credits,
+        alreadyProcessed: !isFirstVerification,
         purchaseDetails,
       }),
       {

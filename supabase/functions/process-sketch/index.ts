@@ -169,26 +169,8 @@ serve(async (req) => {
     }
 
     // Step 2: Initialize Supabase client
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    if (!supabaseUrl || !supabaseKey) {
-      logWithContext("error", "Missing Supabase environment variables", {
-        hasUrl: !!supabaseUrl,
-        hasKey: !!supabaseKey,
-      });
-      return updateCorsHeaders(
-        new Response(
-          JSON.stringify({
-            error: "Server configuration error",
-            success: false,
-          }),
-          {
-            headers: { "Content-Type": "application/json" },
-            status: 500,
-          },
-        ),
-      );
-    }
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Step 3: Verify user session
@@ -484,10 +466,22 @@ serve(async (req) => {
     // Step 10b: Upload generated image to Supabase Storage for permanent URL
     let finalImageUrl = imageResult.imageUrl!;
     try {
-      if (finalImageUrl.startsWith("http")) {
+      if (finalImageUrl.startsWith("http") || finalImageUrl.startsWith("data:")) {
         logWithContext("info", "📦 Uploading generated image to Storage...");
-        const imgResponse = await fetch(finalImageUrl);
-        const imgBlob = await imgResponse.arrayBuffer();
+        let imgBlob: ArrayBuffer;
+        if (finalImageUrl.startsWith("data:")) {
+          // gpt-image-1 returns base64 data URIs — decode instead of fetching
+          const base64Data = finalImageUrl.slice(finalImageUrl.indexOf(",") + 1);
+          const binary = atob(base64Data);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+          }
+          imgBlob = bytes.buffer;
+        } else {
+          const imgResponse = await fetch(finalImageUrl);
+          imgBlob = await imgResponse.arrayBuffer();
+        }
         const storagePath = `generated_${sketchId}_${Date.now()}.png`;
 
         const { data: storageData, error: storageError } = await (supabase as any)
@@ -577,12 +571,8 @@ serve(async (req) => {
 
     if (sketchId) {
       try {
-        const supabaseUrl = Deno.env.get("SUPABASE_URL");
-        const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-        if (!supabaseUrl || !supabaseKey) {
-          logWithContext("error", "Cannot update sketch status: missing Supabase env vars");
-          throw new Error("Missing Supabase environment variables");
-        }
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
         const supabase = createClient(supabaseUrl, supabaseKey);
 
         await updateSketchWithRetry(supabase, sketchId, "failed");

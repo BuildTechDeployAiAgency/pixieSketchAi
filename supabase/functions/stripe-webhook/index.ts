@@ -39,7 +39,11 @@ serve(async (req) => {
     // Verify the webhook signature
     let event: Stripe.Event;
     try {
-      event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+      event = await stripe.webhooks.constructEventAsync(
+        body,
+        signature,
+        webhookSecret,
+      );
     } catch (err) {
       console.error(`Webhook signature verification failed: ${err.message}`);
       return new Response(
@@ -119,22 +123,8 @@ async function handleCheckoutSessionCompleted(
     return;
   }
 
-  // Check if payment record already exists (idempotency protection)
-  const { data: existingPayment } = await supabase
-    .from("payment_history")
-    .select("id, credits_purchased")
-    .eq("stripe_session_id", session.id)
-    .single();
-
-  if (existingPayment) {
-    console.log(
-      "Payment record already exists, skipping duplicate processing:",
-      session.id,
-    );
-    return;
-  }
-
-  // Store payment record
+  // Store payment record exactly once. stripe_session_id is UNIQUE, so a
+  // duplicate insert is ignored — this is race-safe against verify-payment.
   const paymentRecord = {
     stripe_session_id: session.id,
     stripe_payment_intent_id: session.payment_intent as string,
@@ -148,17 +138,28 @@ async function handleCheckoutSessionCompleted(
     created_at: new Date().toISOString(),
   };
 
-  // Insert payment record
-  const { error: insertError } = await supabase
+  const { data: insertedRows, error: insertError } = await supabase
     .from("payment_history")
-    .insert([paymentRecord]);
+    .upsert(paymentRecord, {
+      onConflict: "stripe_session_id",
+      ignoreDuplicates: true,
+    })
+    .select("id");
 
   if (insertError) {
     console.error("Error inserting payment record:", insertError);
     return; // Don't process credits if payment record insert failed
-  } else {
-    console.log("Payment record stored successfully");
   }
+
+  if ((insertedRows?.length ?? 0) === 0) {
+    console.log(
+      "Payment record already exists, skipping duplicate processing:",
+      session.id,
+    );
+    return;
+  }
+
+  console.log("Payment record stored successfully");
 
   // Update user credits only for authenticated users
   if (userId && userId !== "guest") {
