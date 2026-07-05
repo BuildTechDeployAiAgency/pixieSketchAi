@@ -1,4 +1,3 @@
-import * as FileSystem from "expo-file-system/legacy";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { PRESET_PROMPTS } from "@/types/presets";
@@ -124,14 +123,19 @@ export const useSketchOperations = ({
       });
 
       // Download original image and convert to base64
-      const tempFile =
-        FileSystem.documentDirectory + `retry_${Date.now()}.jpg`;
-      const downloadResult = await FileSystem.downloadAsync(
-        sketch.original_image_url,
-        tempFile,
-      );
-      const base64 = await FileSystem.readAsStringAsync(downloadResult.uri, {
-        encoding: FileSystem.EncodingType.Base64,
+      const response = await fetch(sketch.original_image_url);
+      if (!response.ok) {
+        throw new Error("Failed to download original image");
+      }
+      const blob = await response.blob();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const dataUrl = reader.result as string;
+          resolve(dataUrl.slice(dataUrl.indexOf(",") + 1));
+        };
+        reader.onerror = () => reject(new Error("Failed to read image data"));
+        reader.readAsDataURL(blob);
       });
 
       // Re-invoke the Edge Function

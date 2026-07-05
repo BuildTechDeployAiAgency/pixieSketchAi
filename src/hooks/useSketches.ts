@@ -22,7 +22,11 @@ export const useSketches = () => {
     setIsAuthenticated,
   } = useSketchState();
 
-  const operations = useSketchOperations({ setSketches, setNewSketchCount });
+  const operations = useSketchOperations({
+    sketches,
+    setSketches,
+    setNewSketchCount,
+  });
 
   const { checkForStuckSketches, startTimeoutChecker, stopTimeoutChecker } =
     useSketchTimeout({ setSketches });
