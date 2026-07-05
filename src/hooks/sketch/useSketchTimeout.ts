@@ -13,17 +13,23 @@ export const useSketchTimeout = ({ setSketches }: UseSketchTimeoutProps) => {
 
   const checkForStuckSketches = async () => {
     try {
-      const { data: user } = await supabase.auth.getUser();
-      if (!user.user) return;
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.user) return;
 
       const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
 
+      // Only image jobs — video generation polls fal.ai asynchronously and can
+      // legitimately run longer than the 10-minute image timeout.
       const { data: stuckSketches, error } = await supabase
         .from("sketches")
         .select("*")
         .eq("status", "processing")
-        .eq("user_id", user.user.id)
-        .lt("updated_at", tenMinutesAgo);
+        .eq("user_id", session.user.id)
+        .lt("updated_at", tenMinutesAgo)
+        .is("fal_request_id", null)
+        .or("content_type.is.null,content_type.eq.image");
 
       if (error) {
         console.error("Error checking for stuck sketches:", error);

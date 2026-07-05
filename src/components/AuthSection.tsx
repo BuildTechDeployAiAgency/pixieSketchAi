@@ -107,14 +107,26 @@ export const AuthSection = ({
         });
         return;
       }
-      if (data.user) {
+      if (data.session) {
         setIsAuthenticated(true);
         setIsOpen(false);
         setEmail("");
         setPassword("");
         toast({
-          title: "Welcome to MagicSketch AI!",
+          title: "Welcome to PixieSketch!",
           description: "Your account has been created successfully!",
+        });
+      } else if (data.user) {
+        // Email confirmation is required — no session yet, so don't show
+        // an authenticated UI whose queries would all fail.
+        setIsOpen(false);
+        setEmail("");
+        setPassword("");
+        toast({
+          title: "Confirm Your Email",
+          description:
+            "We sent you a confirmation link. Click it to activate your account, then sign in.",
+          duration: 8000,
         });
       }
     } catch (error) {

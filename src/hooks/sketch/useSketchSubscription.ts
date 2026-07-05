@@ -32,16 +32,18 @@ export const useSketchSubscription = ({
   isAuthenticatedRef.current = isAuthenticated;
 
   const cleanupSubscription = () => {
-    if (channelRef.current && isSubscribedRef.current) {
+    // Remove regardless of subscription state — channels still connecting
+    // would otherwise leak and accumulate across auth events and retries.
+    if (channelRef.current) {
       console.log("🧹 Cleaning up existing subscription");
       try {
         supabase.removeChannel(channelRef.current);
       } catch (error) {
         console.error("Error removing channel:", error);
       }
-      channelRef.current = null;
-      isSubscribedRef.current = false;
     }
+    channelRef.current = null;
+    isSubscribedRef.current = false;
   };
 
   const setupRealtimeSubscription = () => {
@@ -56,6 +58,8 @@ export const useSketchSubscription = ({
       `📡 Setting up real-time subscription: ${channelName} for user: ${currentUserIdRef.current}`,
     );
 
+    // Track the channel from creation so cleanup can remove it even if it
+    // never reaches SUBSCRIBED.
     const channel = supabase.channel(channelName).on(
       "postgres_changes",
       {
@@ -146,13 +150,14 @@ export const useSketchSubscription = ({
       },
     );
 
+    channelRef.current = channel;
+
     channel.subscribe((status) => {
       console.log(
         `📡 Subscription status: ${status} for channel: ${channelName}`,
       );
       if (status === "SUBSCRIBED") {
         isSubscribedRef.current = true;
-        channelRef.current = channel;
         retryCountRef.current = 0;
         console.log("✅ Successfully subscribed to real-time updates");
       } else if (status === "CHANNEL_ERROR") {
