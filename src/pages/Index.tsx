@@ -272,7 +272,12 @@ const Index = () => {
                   <span className="font-medium">Upload Drawing</span>
                 </button>
                 <button
-                  onClick={() => setActiveTab("gallery")}
+                  onClick={() => {
+                    setActiveTab("gallery");
+                    // Refresh so the gallery reflects jobs started elsewhere
+                    // even if a realtime event was missed.
+                    sketchesData.refreshSketches();
+                  }}
                   className={`flex items-center space-x-2 px-6 py-3 rounded-full transition-all duration-300 relative ${
                     activeTab === "gallery"
                       ? "bg-purple-600 text-white shadow-md"

@@ -76,7 +76,14 @@ export const useSketchOperations = ({
         description: "Your sketch is being processed",
       });
 
-      return convertToSketch(data);
+      // Optimistically add to local state so the gallery and the floating
+      // processing indicator reflect the job even if realtime lags.
+      const newSketch = convertToSketch(data);
+      setSketches((prev) =>
+        prev.some((s) => s.id === newSketch.id) ? prev : [newSketch, ...prev],
+      );
+
+      return newSketch;
     } catch (error) {
       console.error("💥 Error creating sketch:", error);
       return null;

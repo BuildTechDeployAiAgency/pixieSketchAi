@@ -47,7 +47,9 @@ export const useSketchSubscription = ({
   const setupRealtimeSubscription = () => {
     cleanupSubscription();
 
-    if (!isAuthenticated || !currentUserIdRef.current) return;
+    // Read via ref — the effect that calls this captured a stale closure where
+    // the isAuthenticated prop was still false, silently skipping subscription.
+    if (!isAuthenticatedRef.current || !currentUserIdRef.current) return;
 
     const channelName = `sketches-changes-${hookIdRef.current}`;
     console.log(
