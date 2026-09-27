@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "PixieSketch",
+    "slug": "pixiesketch",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "scheme": "pixiesketch",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#7c3aed"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.pixiesketch.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "PixieSketch needs camera access so you can take photos of your drawings to transform them into AI art.",
+        "NSPhotoLibraryUsageDescription": "PixieSketch needs photo library access so you can select drawings to transform into AI art."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#7c3aed"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.pixiesketch.app",
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-image-picker",
+      "expo-video"
+    ]
+  }
+}

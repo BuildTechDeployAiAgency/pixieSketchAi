@@ -1,179 +1,260 @@
 import { useState } from "react";
-import { CreditCard, X, Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  View,
+  Text,
+  Pressable,
+  Modal,
+  ActivityIndicator,
+  StyleSheet,
+} from "react-native";
+import { X, Coins, Star, Zap } from "lucide-react-native";
+import * as WebBrowser from "expo-web-browser";
+import * as Linking from "expo-linking";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { colors, PRESS_OPACITY } from "@/theme";
+import { radii } from "@/theme/spacing";
+import { shadows } from "@/theme/shadows";
+import { typography } from "@/theme/typography";
 
-interface PaymentModalProps {
-  isOpen: boolean;
+type PricingTier = {
+  credits: number;
+  price: string;
+  amount: number;
+  icon: typeof Coins;
+  color: string;
+  popular?: boolean;
+};
+
+const PRICING_TIERS: PricingTier[] = [
+  { credits: 1, price: "$1.00", amount: 100, icon: Coins, color: colors.tier.starter },
+  { credits: 10, price: "$4.99", amount: 499, icon: Star, color: colors.tier.popular, popular: true },
+  { credits: 25, price: "$9.99", amount: 999, icon: Zap, color: colors.tier.pro },
+];
+
+type PaymentModalProps = {
+  visible: boolean;
   onClose: () => void;
-  isAuthenticated: boolean;
-}
+};
 
-export const PaymentModal = ({
-  isOpen,
-  onClose,
-  isAuthenticated,
-}: PaymentModalProps) => {
-  const [loadingButtonId, setLoadingButtonId] = useState<string | null>(null);
+/* Pressable uses style (not className) to avoid CssInterop crash */
+export function PaymentModal({ visible, onClose }: PaymentModalProps) {
+  const [loadingTier, setLoadingTier] = useState<number | null>(null);
   const { toast } = useToast();
 
-  const handleBuyCredits = async (amount: number, price: number) => {
-    if (!isAuthenticated) {
-      toast({
-        title: "Authentication Required",
-        description: "Please sign in to purchase credits.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const buttonId = `${amount}-credits`;
-    setLoadingButtonId(buttonId);
-
+  const handlePurchase = async (tier: PricingTier) => {
+    setLoadingTier(tier.credits);
     try {
-      console.log("Initiating payment:", { amount, price });
+      const successUrl = Linking.createURL("payment-success", {
+        queryParams: {
+          credits: tier.credits.toString(),
+          session_id: "{CHECKOUT_SESSION_ID}",
+        },
+      });
+      const cancelUrl = Linking.createURL("payment-canceled");
 
       const { data, error } = await supabase.functions.invoke(
         "create-payment",
         {
           body: {
-            amount: price,
-            credits: amount,
+            amount: tier.amount,
+            credits: tier.credits,
+            success_url: successUrl,
+            cancel_url: cancelUrl,
           },
         },
       );
 
-      if (error) {
-        console.error("Payment error:", error);
-        toast({
-          title: "Payment Failed",
-          description:
-            error.message || "Failed to initiate payment. Please try again.",
-          variant: "destructive",
-        });
-        return;
-      }
-
+      if (error) throw error;
       if (data?.url) {
-        console.log("Redirecting to Stripe checkout:", data.url);
-        // Open Stripe checkout in a new tab
-        window.open(data.url, "_blank");
-        toast({
-          title: "Redirecting to Payment",
-          description: "Opening Stripe checkout in a new tab...",
-        });
-        // Close modal after initiating payment
         onClose();
+        const result = await WebBrowser.openAuthSessionAsync(
+          data.url,
+          successUrl,
+        );
+        if (result.type === "success" && result.url) {
+          await Linking.openURL(result.url);
+        }
       } else {
-        throw new Error("No checkout URL received");
+        throw new Error("No checkout URL returned");
       }
-    } catch (error) {
-      console.error("Unexpected payment error:", error);
+    } catch (error: any) {
       toast({
         title: "Payment Error",
-        description: "An unexpected error occurred. Please try again.",
+        description: error.message ?? "Unable to start payment",
         variant: "destructive",
       });
     } finally {
-      setLoadingButtonId(null);
+      setLoadingTier(null);
     }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-center text-xl">
-            Choose Your Magic Pack
-          </DialogTitle>
-        </DialogHeader>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={st.backdrop}>
+        <View style={st.sheet}>
+          <View style={st.headerRow}>
+            <Text style={st.headerTitle}>Buy Credits</Text>
+            <Pressable
+              onPress={onClose}
+              style={({ pressed }) => [
+                st.closeButton,
+                { opacity: pressed ? PRESS_OPACITY : 1 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Close payment modal"
+            >
+              <X color={colors.gray[500]} size={24} />
+            </Pressable>
+          </View>
 
-        <div className="space-y-4">
-          {/* Single Magic - 1 Credit */}
-          <div className="border-2 border-gray-200 rounded-lg p-4 bg-white">
-            <div className="text-center space-y-2">
-              <div className="flex justify-center">
-                <Sparkles className="h-6 w-6 text-blue-600" />
-              </div>
-              <h3 className="text-lg font-semibold">Single Magic</h3>
-              <div className="text-2xl font-bold text-blue-600">$1.00</div>
-              <p className="text-gray-600">1 transformation</p>
-              <Button
-                className="w-full bg-blue-600 hover:bg-blue-700"
-                onClick={() => handleBuyCredits(1, 1.0)}
-                disabled={loadingButtonId === "1-credits"}
+          <Text style={st.headerSubtitle}>
+            Top up your credits to unlock more transforms, videos, and stories.
+          </Text>
+
+          {PRICING_TIERS.map((tier) => {
+            const Icon = tier.icon;
+            return (
+              <Pressable
+                key={tier.credits}
+                onPress={() => handlePurchase(tier)}
+                disabled={loadingTier !== null}
+                style={({ pressed }) => [
+                  st.tierBtn,
+                  tier.popular ? st.tierPopular : st.tierDefault,
+                  { opacity: pressed ? PRESS_OPACITY : 1 },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={`Buy ${tier.credits} credits for ${tier.price}`}
               >
-                <CreditCard className="h-4 w-4 mr-2" />
-                {loadingButtonId === "1-credits"
-                  ? "Processing..."
-                  : "Buy 1 Credit"}
-              </Button>
-            </div>
-          </div>
-
-          {/* Magic Pack - 10 Credits */}
-          <div className="border-2 border-purple-300 rounded-lg p-6 relative bg-gradient-to-br from-purple-50 to-pink-50">
-            <Badge className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-purple-600 text-white">
-              POPULAR
-            </Badge>
-            <div className="text-center space-y-3">
-              <div className="flex justify-center">
-                <Sparkles className="h-8 w-8 text-purple-600" />
-              </div>
-              <h3 className="text-lg font-semibold">Magic Pack</h3>
-              <div className="text-3xl font-bold text-purple-600">$4.99</div>
-              <p className="text-gray-600">10 transformations</p>
-              <Button
-                className="w-full bg-purple-600 hover:bg-purple-700"
-                onClick={() => handleBuyCredits(10, 4.99)}
-                disabled={loadingButtonId === "10-credits"}
-              >
-                <CreditCard className="h-4 w-4 mr-2" />
-                {loadingButtonId === "10-credits"
-                  ? "Processing..."
-                  : "Buy 10 Credits"}
-              </Button>
-            </div>
-          </div>
-
-          {/* Super Magic Pack - 25 Credits */}
-          <div className="border-2 border-gray-200 rounded-lg p-6 bg-white">
-            <div className="text-center space-y-3">
-              <div className="flex justify-center">
-                <div className="relative">
-                  <Sparkles className="h-8 w-8 text-pink-600" />
-                  <div className="absolute -top-1 -right-1 h-4 w-4 bg-yellow-400 rounded-full animate-pulse"></div>
-                </div>
-              </div>
-              <h3 className="text-lg font-semibold">Super Magic Pack</h3>
-              <div className="text-3xl font-bold text-purple-600">$9.99</div>
-              <p className="text-gray-600">25 transformations</p>
-              <Button
-                className="w-full bg-purple-600 hover:bg-purple-700"
-                onClick={() => handleBuyCredits(25, 9.99)}
-                disabled={loadingButtonId === "25-credits"}
-              >
-                <CreditCard className="h-4 w-4 mr-2" />
-                {loadingButtonId === "25-credits"
-                  ? "Processing..."
-                  : "Best Value Pack"}
-              </Button>
-            </div>
-          </div>
-
-          <div className="text-center text-sm text-gray-500">
-            Secure payment powered by Stripe
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+                <View
+                  style={[
+                    st.tierIconWrap,
+                    { backgroundColor: tier.color + "20" },
+                  ]}
+                >
+                  <Icon color={tier.color} size={24} />
+                </View>
+                <View style={st.tierTextWrap}>
+                  <View style={st.tierTitleRow}>
+                    <Text style={st.tierTitle}>
+                      {tier.credits} Credit{tier.credits > 1 ? "s" : ""}
+                    </Text>
+                    {tier.popular && (
+                      <View style={st.popularPill}>
+                        <Text style={st.popularPillText}>POPULAR</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={st.tierDescription}>
+                    {tier.credits > 1
+                      ? `$${(tier.amount / tier.credits / 100).toFixed(2)}/credit`
+                      : "Single transformation"}
+                  </Text>
+                </View>
+                {loadingTier === tier.credits ? (
+                  <ActivityIndicator color={tier.color} />
+                ) : (
+                  <Text style={[st.priceText, { color: tier.color }]}>{tier.price}</Text>
+                )}
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+    </Modal>
   );
-};
+}
+
+const st = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: colors.overlay.backdrop,
+  },
+  sheet: {
+    backgroundColor: colors.white,
+    borderTopLeftRadius: radii.xxl,
+    borderTopRightRadius: radii.xxl,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 36,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  headerTitle: { ...typography.h2 },
+  headerSubtitle: {
+    ...typography.subtitle,
+    lineHeight: 20,
+    marginBottom: 20,
+    paddingRight: 24,
+  },
+  closeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.gray[50],
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tierBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 84,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderRadius: radii.lg,
+    marginBottom: 12,
+    borderWidth: 1,
+  },
+  tierIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: radii.md,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 14,
+  },
+  tierTextWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
+  tierTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  tierTitle: { ...typography.label },
+  tierDescription: { ...typography.caption },
+  popularPill: {
+    marginLeft: 8,
+    backgroundColor: colors.primary.DEFAULT,
+    borderRadius: radii.full,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  popularPillText: {
+    color: colors.white,
+    ...typography.pillLabel,
+    letterSpacing: 0.4,
+  },
+  priceText: { ...typography.price, marginLeft: 12 },
+  tierPopular: {
+    borderColor: colors.primary[300],
+    backgroundColor: colors.primary[50],
+    ...shadows.primarySm,
+  },
+  tierDefault: {
+    borderColor: colors.gray[200],
+    backgroundColor: colors.white,
+  },
+});

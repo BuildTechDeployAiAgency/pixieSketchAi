@@ -1,5 +1,5 @@
 import "./global.css";
-import { View, Text } from "react-native";
+import { View, Text, ActivityIndicator } from "react-native";
 import * as Linking from "expo-linking";
 import { StatusBar } from "expo-status-bar";
 import { NavigationContainer } from "@react-navigation/native";
@@ -50,7 +50,21 @@ function MainTabs() {
             tabBarInactiveTintColor: "#94a3b8",
             headerShown: false,
             tabBarStyle: {
-              borderTopColor: "#e2e8f0",
+              backgroundColor: "#ffffff",
+              borderTopColor: "#e8ecf1",
+              borderTopWidth: 1,
+              paddingTop: 6,
+              paddingBottom: 4,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: -2 },
+              shadowOpacity: 0.04,
+              shadowRadius: 8,
+              elevation: 8,
+            },
+            tabBarLabelStyle: {
+              fontSize: 11,
+              fontWeight: "600",
+              marginBottom: 2,
             },
           }}
         >
@@ -103,16 +117,22 @@ function OfflineBanner() {
   );
 }
 
+function LoadingScreen() {
+  return (
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#ffffff" }}>
+      <ActivityIndicator size="large" color="#7c3aed" />
+    </View>
+  );
+}
+
 function RootNavigator() {
   const { session, isLoading } = useAuth();
 
-  if (isLoading) {
-    return null;
-  }
-
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {session ? (
+      {isLoading ? (
+        <Stack.Screen name="Loading" component={LoadingScreen} />
+      ) : session ? (
         <>
           <Stack.Screen name="MainTabs" component={MainTabs} />
           <Stack.Screen

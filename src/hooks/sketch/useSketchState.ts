@@ -9,6 +9,9 @@ export interface Sketch {
   name: string;
   original_image_url: string | null;
   animated_image_url: string | null;
+  content_type: "image" | "video";
+  video_prompt: string | null;
+  fal_request_id: string | null;
   status: "processing" | "completed" | "failed";
   is_new: boolean;
   created_at: string;
@@ -24,6 +27,8 @@ const isValidStatus = (
 export const convertToSketch = (row: SketchRow): Sketch => ({
   ...row,
   status: isValidStatus(row.status) ? row.status : "processing",
+  content_type: row.content_type === "video" ? "video" : "image",
+  video_prompt: row.video_prompt ?? null,
 });
 
 export const useSketchState = () => {

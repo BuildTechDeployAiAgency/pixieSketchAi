@@ -1,0 +1,1 @@
+ALTER TABLE sketches ADD COLUMN IF NOT EXISTS fal_request_id TEXT;

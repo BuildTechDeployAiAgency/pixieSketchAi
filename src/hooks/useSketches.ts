@@ -8,6 +8,7 @@ import { useSketchFetcher } from "./sketch/useSketchFetcher";
 
 export const useSketches = () => {
   const currentUserIdRef = useRef<string | null>(null);
+  const initialFetchDoneRef = useRef(false);
 
   const {
     sketches,
@@ -22,7 +23,7 @@ export const useSketches = () => {
     setIsAuthenticated,
   } = useSketchState();
 
-  const operations = useSketchOperations({ setSketches, setNewSketchCount });
+  const operations = useSketchOperations({ sketches, setSketches, setNewSketchCount });
 
   const { checkForStuckSketches, startTimeoutChecker, stopTimeoutChecker } =
     useSketchTimeout({ setSketches });
@@ -44,28 +45,17 @@ export const useSketches = () => {
       currentUserIdRef,
     });
 
-  useEffect(() => {
-    let unsub: (() => void) | undefined;
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const authenticated = !!session;
-      setIsAuthenticated(authenticated);
-
-      if (authenticated) {
-        fetchSketches().then(() => {
-          currentUserIdRef.current = session?.user?.id || null;
-          startTimeoutChecker();
-          setTimeout(() => {
-            setupRealtimeSubscription();
-          }, 100);
-        });
-      } else {
-        setIsLoading(false);
-        cleanupSubscription();
-        stopTimeoutChecker();
-      }
+  const initForSession = (userId: string) => {
+    currentUserIdRef.current = userId;
+    fetchSketches().then(() => {
+      startTimeoutChecker();
+      setTimeout(() => {
+        setupRealtimeSubscription();
+      }, 100);
     });
+  };
 
+  useEffect(() => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
@@ -75,18 +65,24 @@ export const useSketches = () => {
       setIsAuthenticated(nowAuthenticated);
 
       if (session) {
-        currentUserIdRef.current = session.user.id;
-        fetchSketches().then(() => {
-          startTimeoutChecker();
-          setTimeout(() => {
-            setupRealtimeSubscription();
-          }, 150);
-        });
+        // Skip if this is the initial session and we haven't changed users
+        if (
+          event === "INITIAL_SESSION" &&
+          initialFetchDoneRef.current &&
+          currentUserIdRef.current === session.user.id
+        ) {
+          return;
+        }
+
+        initialFetchDoneRef.current = true;
+        initForSession(session.user.id);
       } else {
+        initialFetchDoneRef.current = false;
         setSketches([]);
         setNewSketchCount(0);
         setError(null);
         currentUserIdRef.current = null;
+        setIsLoading(false);
         cleanupSubscription();
         stopTimeoutChecker();
       }
@@ -96,7 +92,6 @@ export const useSketches = () => {
       stopTimeoutChecker();
       cleanupSubscription();
       subscription.unsubscribe();
-      if (typeof unsub === "function") unsub();
     };
   }, []);
 
