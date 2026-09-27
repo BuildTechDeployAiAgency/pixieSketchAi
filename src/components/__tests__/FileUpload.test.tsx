@@ -1,35 +1,51 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FileUpload } from "../FileUpload";
 
-// Mock the hooks
-vi.mock("@/hooks/useSketches", () => ({
-  useSketches: () => ({
-    createSketch: vi.fn().mockResolvedValue({ id: "sketch-123" }),
-    updateSketchStatus: vi.fn(),
-  }),
-}));
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
-const mockProps = {
+// The global test setup replaces FileReader with an inert stub; the
+// component needs onloadend to fire for the preview image to render.
+class WorkingFileReader {
+  onloadend: (() => void) | null = null;
+  onload: (() => void) | null = null;
+  onerror: ((error: unknown) => void) | null = null;
+  result: string | ArrayBuffer | null = null;
+
+  readAsDataURL(_file: Blob) {
+    this.result = "data:image/jpeg;base64,dGVzdA==";
+    this.onloadend?.();
+  }
+}
+
+const makeImageFile = (name: string, size: number, type = "image/jpeg") => {
+  const file = new File(["x"], name, { type });
+  Object.defineProperty(file, "size", { value: size });
+  return file;
+};
+
+const makeProps = () => ({
   credits: 5,
-  setCredits: vi.fn(),
   isAuthenticated: true,
   onCreditUpdate: vi.fn(),
-};
+  createSketch: vi.fn().mockResolvedValue(null),
+  updateSketchStatus: vi.fn().mockResolvedValue(undefined),
+});
 
 describe("FileUpload", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    global.FileReader = WorkingFileReader as unknown as typeof FileReader;
   });
 
   describe("file validation", () => {
     it("should accept valid image files", async () => {
       const user = userEvent.setup();
-      render(<FileUpload {...mockProps} />);
+      render(<FileUpload {...makeProps()} />);
 
       const fileInput = screen.getByLabelText(/click to upload/i);
-      const validFile = new File(["test"], "test.jpg", { type: "image/jpeg" });
+      const validFile = makeImageFile("test.jpg", 1024);
 
       await user.upload(fileInput, validFile);
 
@@ -38,7 +54,7 @@ describe("FileUpload", () => {
 
     it("should reject non-image files", async () => {
       const user = userEvent.setup();
-      render(<FileUpload {...mockProps} />);
+      render(<FileUpload {...makeProps()} />);
 
       const fileInput = screen.getByLabelText(/click to upload/i);
       const invalidFile = new File(["test"], "test.txt", {
@@ -52,15 +68,10 @@ describe("FileUpload", () => {
 
     it("should reject files larger than 50MB", async () => {
       const user = userEvent.setup();
-      render(<FileUpload {...mockProps} />);
+      render(<FileUpload {...makeProps()} />);
 
       const fileInput = screen.getByLabelText(/click to upload/i);
-
-      // Create a file larger than 50MB
-      const largeFileSize = 51 * 1024 * 1024; // 51MB
-      const largeFile = new File(["x".repeat(largeFileSize)], "large.jpg", {
-        type: "image/jpeg",
-      });
+      const largeFile = makeImageFile("large.jpg", MAX_FILE_SIZE + 1024);
 
       await user.upload(fileInput, largeFile);
 
@@ -70,7 +81,7 @@ describe("FileUpload", () => {
 
   describe("authentication checks", () => {
     it("should show authentication warning when not authenticated", () => {
-      render(<FileUpload {...mockProps} isAuthenticated={false} />);
+      render(<FileUpload {...makeProps()} isAuthenticated={false} />);
 
       expect(screen.getByText("Account Required")).toBeInTheDocument();
       expect(
@@ -79,7 +90,7 @@ describe("FileUpload", () => {
     });
 
     it("should show credit warning when no credits available", () => {
-      render(<FileUpload {...mockProps} credits={0} />);
+      render(<FileUpload {...makeProps()} credits={0} />);
 
       expect(screen.getByText("No Credits Available")).toBeInTheDocument();
       expect(
@@ -92,20 +103,18 @@ describe("FileUpload", () => {
 
   describe("preset selection", () => {
     it("should not allow preset selection without file upload", async () => {
-      const user = userEvent.setup();
-      render(<FileUpload {...mockProps} />);
+      render(<FileUpload {...makeProps()} />);
 
-      // Try to click a preset button without uploading a file first
-      // Since PresetButtonGroup is not rendered without selectedFile, this test verifies the behavior
+      // PresetButtonGroup is not rendered until a file is selected
       expect(screen.queryByText(/cartoon/i)).not.toBeInTheDocument();
     });
 
     it("should not allow preset selection when not authenticated", async () => {
       const user = userEvent.setup();
-      render(<FileUpload {...mockProps} isAuthenticated={false} />);
+      render(<FileUpload {...makeProps()} isAuthenticated={false} />);
 
       const fileInput = screen.getByLabelText(/click to upload/i);
-      const validFile = new File(["test"], "test.jpg", { type: "image/jpeg" });
+      const validFile = makeImageFile("test.jpg", 1024);
 
       await user.upload(fileInput, validFile);
 
@@ -115,10 +124,10 @@ describe("FileUpload", () => {
 
     it("should not allow preset selection when no credits", async () => {
       const user = userEvent.setup();
-      render(<FileUpload {...mockProps} credits={0} />);
+      render(<FileUpload {...makeProps()} credits={0} />);
 
       const fileInput = screen.getByLabelText(/click to upload/i);
-      const validFile = new File(["test"], "test.jpg", { type: "image/jpeg" });
+      const validFile = makeImageFile("test.jpg", 1024);
 
       await user.upload(fileInput, validFile);
 
@@ -129,12 +138,10 @@ describe("FileUpload", () => {
   describe("file size validation edge cases", () => {
     it("should accept file exactly at 50MB limit", async () => {
       const user = userEvent.setup();
-      render(<FileUpload {...mockProps} />);
+      render(<FileUpload {...makeProps()} />);
 
       const fileInput = screen.getByLabelText(/click to upload/i);
-      const maxSizeFile = new File(["x".repeat(50 * 1024 * 1024)], "max.jpg", {
-        type: "image/jpeg",
-      });
+      const maxSizeFile = makeImageFile("max.jpg", MAX_FILE_SIZE);
 
       await user.upload(fileInput, maxSizeFile);
 
@@ -143,14 +150,10 @@ describe("FileUpload", () => {
 
     it("should reject file just over 50MB limit", async () => {
       const user = userEvent.setup();
-      render(<FileUpload {...mockProps} />);
+      render(<FileUpload {...makeProps()} />);
 
       const fileInput = screen.getByLabelText(/click to upload/i);
-      const oversizeFile = new File(
-        ["x".repeat(50 * 1024 * 1024 + 1)],
-        "oversize.jpg",
-        { type: "image/jpeg" },
-      );
+      const oversizeFile = makeImageFile("oversize.jpg", MAX_FILE_SIZE + 1);
 
       await user.upload(fileInput, oversizeFile);
 
@@ -161,26 +164,23 @@ describe("FileUpload", () => {
   describe("error handling", () => {
     it("should handle file reading errors gracefully", async () => {
       const user = userEvent.setup();
-      render(<FileUpload {...mockProps} />);
+      render(<FileUpload {...makeProps()} />);
 
       const fileInput = screen.getByLabelText(/click to upload/i);
 
-      // Mock FileReader to simulate error
-      const originalFileReader = global.FileReader;
+      // FileReader that errors instead of loading
       global.FileReader = class {
-        readAsDataURL = vi.fn();
-        onerror = null;
-        onload = null;
-        result = null;
+        onloadend: (() => void) | null = null;
+        onload: (() => void) | null = null;
+        onerror: ((error: unknown) => void) | null = null;
+        result: string | ArrayBuffer | null = null;
 
-        constructor() {
-          setTimeout(() => {
-            if (this.onerror) this.onerror(new Error("File read error"));
-          }, 0);
+        readAsDataURL(_file: Blob) {
+          this.onerror?.(new Error("File read error"));
         }
-      } as any;
+      } as unknown as typeof FileReader;
 
-      const validFile = new File(["test"], "test.jpg", { type: "image/jpeg" });
+      const validFile = makeImageFile("test.jpg", 1024);
 
       await user.upload(fileInput, validFile);
 
@@ -190,8 +190,6 @@ describe("FileUpload", () => {
           screen.queryByAltText("Uploaded Drawing"),
         ).not.toBeInTheDocument();
       });
-
-      global.FileReader = originalFileReader;
     });
   });
 });

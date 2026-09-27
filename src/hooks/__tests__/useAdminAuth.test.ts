@@ -3,6 +3,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { useAdminAuth } from "../useAdminAuth";
 import { supabase } from "@/integrations/supabase/client";
 
+// Matches the hook's built-in admin fallback (VITE_ADMIN_EMAIL unset in tests).
 const ADMIN_EMAIL = "diogo@diogoppedro.com";
 
 describe("useAdminAuth", () => {

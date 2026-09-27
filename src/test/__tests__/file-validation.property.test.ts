@@ -97,9 +97,21 @@ describe("File Validation Properties", () => {
     it("should reject invalid base64 characters", () => {
       fc.assert(
         fc.property(
-          fc.stringOf(
-            fc.constantFrom("!", "@", "#", "$", "%", "^", "&", "*", "(", ")"),
-          ),
+          fc.string({
+            unit: fc.constantFrom(
+              "!",
+              "@",
+              "#",
+              "$",
+              "%",
+              "^",
+              "&",
+              "*",
+              "(",
+              ")",
+            ),
+            minLength: 1,
+          }),
           (invalidString) => {
             const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
             const isValidFormat = base64Regex.test(invalidString);
@@ -112,7 +124,8 @@ describe("File Validation Properties", () => {
     it("should handle base64 with correct padding", () => {
       fc.assert(
         fc.property(
-          fc.stringOf(fc.constantFrom("A", "B", "C", "D", "1", "2", "3", "4"), {
+          fc.string({
+            unit: fc.constantFrom("A", "B", "C", "D", "1", "2", "3", "4"),
             minLength: 4,
             maxLength: 100,
           }),
@@ -135,7 +148,8 @@ describe("File Validation Properties", () => {
     it("should extract file extensions correctly", () => {
       fc.assert(
         fc.property(
-          fc.stringOf(fc.constantFrom("a", "b", "c", "1", "2", "3"), {
+          fc.string({
+            unit: fc.constantFrom("a", "b", "c", "1", "2", "3"),
             minLength: 1,
             maxLength: 10,
           }),
@@ -153,7 +167,7 @@ describe("File Validation Properties", () => {
       fc.assert(
         fc.property(
           fc
-            .stringOf(fc.char(), { minLength: 1, maxLength: 20 })
+            .string({ minLength: 1, maxLength: 20 })
             .filter((s) => !s.includes(".")),
           (fileNameWithoutExtension) => {
             const parts = fileNameWithoutExtension.split(".");

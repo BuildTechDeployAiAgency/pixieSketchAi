@@ -19,7 +19,7 @@ export const useDrawingAnalysis = () => {
   const { toast } = useToast();
 
   const parseErrorMessage = (error: any): string => {
-    if (__DEV__) console.log("Full error object:", error);
+    if (import.meta.env.DEV) console.log("Full error object:", error);
 
     // Check for credit-related errors
     if (
@@ -76,7 +76,7 @@ export const useDrawingAnalysis = () => {
         customPrompt ||
         "Analyze this children's drawing and describe how it could be transformed into a magical drawing. Focus on the characters, colors, and potential magical elements that would bring it to life.";
 
-      if (__DEV__) {
+      if (import.meta.env.DEV) {
         console.log("Starting analysis with imageUrl:", imageUrl);
         console.log("Prompt:", prompt);
       }
@@ -91,7 +91,8 @@ export const useDrawingAnalysis = () => {
         },
       );
 
-      if (__DEV__) console.log("Supabase function response:", { data, error });
+      if (import.meta.env.DEV)
+        console.log("Supabase function response:", { data, error });
 
       if (error) {
         console.error("Analysis error details:", error);

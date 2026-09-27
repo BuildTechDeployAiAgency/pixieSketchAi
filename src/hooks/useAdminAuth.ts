@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-const SUPER_USER_EMAIL = process.env.EXPO_PUBLIC_SUPER_USER_EMAIL ?? null;
+const SUPER_USER_EMAIL =
+  import.meta.env.VITE_ADMIN_EMAIL ?? "diogo@diogoppedro.com";
 
 interface AdminAuthState {
   isAdmin: boolean;

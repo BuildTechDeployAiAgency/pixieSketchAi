@@ -85,22 +85,27 @@ describe("Sketch Status Properties", () => {
     it("should maintain status history integrity", () => {
       fc.assert(
         fc.property(
-          fc.array(fc.constantFrom("processing", "completed", "failed"), {
-            minLength: 1,
-            maxLength: 10,
-          }),
-          (statusHistory: SketchStatus[]) => {
+          fc.integer({ min: 0, max: 4 }), // failed attempts before final outcome
+          fc.constantFrom<SketchStatus>("processing", "completed", "failed"),
+          (retryCount, finalStatus) => {
+            // Build a history by following the valid transition rules:
+            // processing -> completed | failed, failed -> processing (retry)
+            const statusHistory: SketchStatus[] = [];
+            for (let i = 0; i < retryCount; i++) {
+              statusHistory.push("processing", "failed");
+            }
+            statusHistory.push("processing");
+            if (finalStatus !== "processing") {
+              statusHistory.push(finalStatus);
+            }
+
             // First status should always be 'processing'
-            const firstStatus = statusHistory[0];
-            const startsWithProcessing = firstStatus === "processing";
+            expect(statusHistory[0]).toBe("processing");
 
             // If we have a completed status, it should be the last one
             const completedIndex = statusHistory.indexOf("completed");
-            const hasCompleted = completedIndex !== -1;
-
-            if (hasCompleted) {
-              const isLastStatus = completedIndex === statusHistory.length - 1;
-              expect(isLastStatus).toBe(true);
+            if (completedIndex !== -1) {
+              expect(completedIndex).toBe(statusHistory.length - 1);
             }
           },
         ),

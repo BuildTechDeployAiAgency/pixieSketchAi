@@ -1,53 +1,66 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, waitFor } from "@testing-library/react";
+import { renderHook, act } from "@testing-library/react";
 import { useDrawingAnalysis } from "../useDrawingAnalysis";
 import { supabase } from "@/integrations/supabase/client";
+
+const { toastSpy } = vi.hoisted(() => ({ toastSpy: vi.fn() }));
+
+vi.mock("@/hooks/use-toast", () => ({
+  useToast: () => ({ toast: toastSpy }),
+}));
+
+const IMAGE_URL = "data:image/png;base64,test-image-data";
 
 describe("useDrawingAnalysis", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  describe("parseErrorMessage", () => {
-    it("should handle credit-related errors", () => {
-      const hook = renderHook(() => useDrawingAnalysis());
-      const parseErrorMessage = (hook.result.current as any).parseErrorMessage;
+  describe("analyzeDrawing error messages", () => {
+    it.each([
+      [
+        "credit-related errors",
+        { message: "Insufficient credits available" },
+        /don't have enough credits/,
+      ],
+      [
+        "OpenAI API errors",
+        { message: "OpenAI API key invalid" },
+        /issue with our AI service/,
+      ],
+      [
+        "rate limiting errors",
+        { code: "RATE_LIMITED" },
+        /AI service is currently busy/,
+      ],
+      [
+        "unknown errors (falls back to raw message)",
+        { message: "Some random error" },
+        /^Some random error$/,
+      ],
+    ])(
+      "shows a destructive toast with a user-friendly message for %s",
+      async (_label, invokeError, expectedDescription) => {
+        vi.mocked(supabase.functions.invoke).mockResolvedValue({
+          data: null,
+          error: invokeError,
+        } as never);
 
-      const creditError = { message: "Insufficient credits available" };
-      const result = parseErrorMessage(creditError);
+        const { result } = renderHook(() => useDrawingAnalysis());
 
-      expect(result).toContain("don't have enough credits");
-    });
+        let analysis: string | null = "unset" as string | null;
+        await act(async () => {
+          analysis = await result.current.analyzeDrawing(IMAGE_URL);
+        });
 
-    it("should handle OpenAI API errors", () => {
-      const hook = renderHook(() => useDrawingAnalysis());
-      const parseErrorMessage = (hook.result.current as any).parseErrorMessage;
-
-      const apiError = { message: "OpenAI API key invalid" };
-      const result = parseErrorMessage(apiError);
-
-      expect(result).toContain("issue with our AI service");
-    });
-
-    it("should handle rate limiting errors", () => {
-      const hook = renderHook(() => useDrawingAnalysis());
-      const parseErrorMessage = (hook.result.current as any).parseErrorMessage;
-
-      const rateLimitError = { code: "RATE_LIMITED" };
-      const result = parseErrorMessage(rateLimitError);
-
-      expect(result).toContain("AI service is currently busy");
-    });
-
-    it("should provide default error message for unknown errors", () => {
-      const hook = renderHook(() => useDrawingAnalysis());
-      const parseErrorMessage = (hook.result.current as any).parseErrorMessage;
-
-      const unknownError = { message: "Some random error" };
-      const result = parseErrorMessage(unknownError);
-
-      expect(result).toBe("Some random error");
-    });
+        expect(analysis).toBe(null);
+        expect(toastSpy).toHaveBeenCalledWith({
+          title: "Analysis Failed",
+          description: expect.stringMatching(expectedDescription),
+          variant: "destructive",
+        });
+      },
+    );
   });
 
   describe("analyzeDrawing", () => {
@@ -56,88 +69,97 @@ describe("useDrawingAnalysis", () => {
         analysis: "This is a beautiful drawing of a cat.",
       };
 
-      vi.mocked(supabase.functions.invoke).mockResolvedValue({
-        data: mockAnalysisResult,
-        error: null,
-      });
+      let resolveInvoke!: (value: {
+        data: typeof mockAnalysisResult;
+        error: null;
+      }) => void;
+      vi.mocked(supabase.functions.invoke).mockReturnValue(
+        new Promise((resolve) => {
+          resolveInvoke = resolve;
+        }) as never,
+      );
 
       const { result } = renderHook(() => useDrawingAnalysis());
 
-      const imageUrl = "data:image/png;base64,test-image-data";
-      const analysisPromise = result.current.analyzeDrawing(imageUrl);
+      let analysisPromise!: Promise<string | null>;
+      act(() => {
+        analysisPromise = result.current.analyzeDrawing(IMAGE_URL);
+      });
 
       expect(result.current.isAnalyzing).toBe(true);
 
-      const analysis = await analysisPromise;
-
-      await waitFor(() => {
-        expect(result.current.isAnalyzing).toBe(false);
+      let analysis: string | null = null;
+      await act(async () => {
+        resolveInvoke({ data: mockAnalysisResult, error: null });
+        analysis = await analysisPromise;
       });
 
+      expect(result.current.isAnalyzing).toBe(false);
       expect(analysis).toBe(mockAnalysisResult.analysis);
       expect(result.current.analysisResult).toBe(mockAnalysisResult.analysis);
     });
 
     it("should handle analysis errors", async () => {
-      const mockError = { message: "Analysis failed" };
-
       vi.mocked(supabase.functions.invoke).mockResolvedValue({
         data: null,
-        error: mockError,
-      });
+        error: { message: "Analysis failed" },
+      } as never);
 
       const { result } = renderHook(() => useDrawingAnalysis());
 
-      const imageUrl = "data:image/png;base64,test-image-data";
-      const analysis = await result.current.analyzeDrawing(imageUrl);
-
-      await waitFor(() => {
-        expect(result.current.isAnalyzing).toBe(false);
+      let analysis: string | null = "unset" as string | null;
+      await act(async () => {
+        analysis = await result.current.analyzeDrawing(IMAGE_URL);
       });
 
       expect(analysis).toBe(null);
+      expect(result.current.isAnalyzing).toBe(false);
+      expect(result.current.analysisResult).toBe(null);
     });
 
     it("should handle missing analysis result", async () => {
       vi.mocked(supabase.functions.invoke).mockResolvedValue({
         data: {},
         error: null,
-      });
+      } as never);
 
       const { result } = renderHook(() => useDrawingAnalysis());
 
-      const imageUrl = "data:image/png;base64,test-image-data";
-      const analysis = await result.current.analyzeDrawing(imageUrl);
-
-      await waitFor(() => {
-        expect(result.current.isAnalyzing).toBe(false);
+      let analysis: string | null = "unset" as string | null;
+      await act(async () => {
+        analysis = await result.current.analyzeDrawing(IMAGE_URL);
       });
 
       expect(analysis).toBe(null);
+      expect(result.current.isAnalyzing).toBe(false);
+      expect(toastSpy).toHaveBeenCalledWith({
+        title: "Analysis Failed",
+        description: "No analysis result received. Please try again.",
+        variant: "destructive",
+      });
     });
 
     it("should use custom prompt when provided", async () => {
-      const mockAnalysisResult = { analysis: "Custom analysis result." };
-
       vi.mocked(supabase.functions.invoke).mockResolvedValue({
-        data: mockAnalysisResult,
+        data: { analysis: "Custom analysis result." },
         error: null,
-      });
+      } as never);
 
       const { result } = renderHook(() => useDrawingAnalysis());
 
-      const imageUrl = "data:image/png;base64,test-image-data";
       const customPrompt =
         "Analyze this drawing with special attention to colors.";
 
-      await result.current.analyzeDrawing(imageUrl, customPrompt);
+      await act(async () => {
+        await result.current.analyzeDrawing(IMAGE_URL, customPrompt);
+      });
 
       expect(supabase.functions.invoke).toHaveBeenCalledWith(
         "analyze-drawing",
         {
           body: {
             prompt: customPrompt,
-            imageUrl,
+            imageUrl: IMAGE_URL,
           },
         },
       );

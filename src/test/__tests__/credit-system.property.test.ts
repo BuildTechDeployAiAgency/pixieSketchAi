@@ -91,8 +91,12 @@ describe("Credit System Properties", () => {
       fc.assert(
         fc.property(
           fc.oneof(
-            fc.float({ min: -1000, max: -0.1 }), // negative numbers
-            fc.float({ min: 0.1, max: 0.9 }), // fractional numbers
+            fc.float({ min: -1000, max: Math.fround(-0.1), noNaN: true }), // negative numbers
+            fc.float({
+              min: Math.fround(0.1),
+              max: Math.fround(0.9),
+              noNaN: true,
+            }), // fractional numbers
             fc.constant(NaN),
             fc.constant(Infinity),
             fc.constant(-Infinity),
